@@ -24,8 +24,8 @@ public class Driver {
     private String vehicleDetails;
     private Double latitude;
     private Double longitude;
-    private Double AvgRating = 0.0;
-    private Long TotalRating = 0L;
+    private Double avgRating = 0.0;
+    private Long totalRating = 0L;
     private AvailabilityStatus availabilityStatus = AvailabilityStatus.UNAVAILABLE;
 
     public enum AvailabilityStatus {

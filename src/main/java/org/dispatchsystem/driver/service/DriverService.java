@@ -41,7 +41,7 @@ public class DriverService {
             existingDriver.setName(updatedData.getName());
 
         if (updatedData.getPassword() != null && !updatedData.getPassword().isBlank())
-            existingDriver.setPassword(updatedData.getPassword());
+            existingDriver.setPassword(passwordEncoder.encode(updatedData.getPassword()));
 
         if (updatedData.getPhoneNumber() != null)
             existingDriver.setPhoneNumber(updatedData.getPhoneNumber());

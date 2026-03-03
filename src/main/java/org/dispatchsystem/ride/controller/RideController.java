@@ -3,20 +3,20 @@ package org.dispatchsystem.ride.controller;
 import jakarta.validation.Valid;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.service.RideService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+@RestController
+@RequestMapping("rides")
 public class RideController {
-    @Autowired
-    public static RideService rideService;
+    private final RideService rideService;
+    RideController(RideService rideService){
+        this.rideService=rideService;
+    }
+    @PostMapping("/request")
     public ResponseEntity<Ride> requestRide(@Valid @RequestBody Ride req){
         Ride requestedRide= rideService.requestRide(
                 req.getStartLongitude(),
