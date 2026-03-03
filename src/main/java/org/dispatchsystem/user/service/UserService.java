@@ -1,7 +1,11 @@
 package org.dispatchsystem.user.service;
 
+import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
 import org.dispatchsystem.user.domain.User;
 import org.dispatchsystem.user.repository.UserRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -9,24 +13,23 @@ import java.util.List;
 @Service
 public class UserService {
     private final UserRepository passengerRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    UserService(UserRepository passengerRepository) {
+    UserService(UserRepository passengerRepository, PasswordEncoder passwordEncoder) {
         this.passengerRepository = passengerRepository;
-        // this.passwordEncoder=passwordEncoder;
+         this.passwordEncoder=passwordEncoder;
     }
-
-    public User createPassenger(User passenger) {
+    public User registerUser(User passenger) {
         if (passenger.getPassword() != null && !passenger.getPassword().isBlank()) {
-            passenger.setPassword(passenger.getPassword());
+            passenger.setPassword(passwordEncoder.encode(passenger.getPassword()));
         }
         return passengerRepository.save(passenger);
     }
 
     public User getCurrentPassengerDetails() {
-        return new User();
-        // Authentication auth= SecurityContextHolder.getContext().getAuthentication();
-        // return passengerRepository.findByEmail(auth.getName())
-        // .orElseThrow(() -> new ResourceNotFoundException("Passenger not found"));
+         Authentication auth= SecurityContextHolder.getContext().getAuthentication();
+         return passengerRepository.findByEmail(auth.getName())
+         .orElseThrow(() -> new ResourceNotFoundException("Passenger not found"));
     }
 
     public List<User> getAllPassengers() {

@@ -3,9 +3,11 @@ package org.dispatchsystem.driver.controller;
 import jakarta.validation.Valid;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.service.DriverService;
+import org.dispatchsystem.user.domain.LoginRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +34,7 @@ public class DriverController {
         return ResponseEntity.status(HttpStatus.CREATED).body(savedDriver);
 
     }
+
     public ResponseEntity<List<Driver>> getAllDrivers() {
         List<Driver>savedDrivers= driverService.getAllDrivers();
         return ResponseEntity.ok(savedDrivers);

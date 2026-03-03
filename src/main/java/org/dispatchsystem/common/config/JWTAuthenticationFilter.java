@@ -26,7 +26,6 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
         return request.getRequestURI().startsWith("/ws");
     }
 
-
     @Override
 
     protected void doFilterInternal(HttpServletRequest request,
