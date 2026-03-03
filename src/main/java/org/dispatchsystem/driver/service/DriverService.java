@@ -1,20 +1,26 @@
 package org.dispatchsystem.driver.service;
-
+import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
 public class DriverService {
-    @Autowired
-    private DriverRepository driverRepository;
+    private final DriverRepository driverRepository;
+    private final PasswordEncoder passwordEncoder;
+    public DriverService(PasswordEncoder passwordEncoder,DriverRepository driverRepository){
+        this.driverRepository=driverRepository;
+        this.passwordEncoder=passwordEncoder;
+    }
 
     public Driver createDriver(Driver driver) {
         if (driver.getPassword() != null && !driver.getPassword().isBlank()) {
-            // driver.setPassword(passwordEncoder.encode(driver.getPassword()));
+             driver.setPassword(passwordEncoder.encode(driver.getPassword()));
         }
         return driverRepository.save(driver);
     }
@@ -24,13 +30,12 @@ public class DriverService {
     }
 
     public Driver getCurrentDriver() {
-        return new Driver();
+        Authentication auth= SecurityContextHolder.getContext().getAuthentication();
+        return driverRepository.findByEmail(auth.getName()).orElseThrow(()->new ResourceNotFoundException("Driver Not Found"));
     }
 
     public Driver updateDriver(Driver updatedData) {
-        // Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        // String email= ;
-        Driver existingDriver = updatedData;
+        Driver existingDriver = getCurrentDriver();
 
         if (updatedData.getName() != null)
             existingDriver.setName(updatedData.getName());
@@ -60,7 +65,11 @@ public class DriverService {
     }
 
     public Driver updateDriverAvailability(Driver.AvailabilityStatus status) {
-        return new Driver();
+        Driver driver=getCurrentDriver();
+        if(!driver.getAvailabilityStatus().equals(status)){
+            driver.setAvailabilityStatus(status);
+        }
+        return driverRepository.save(driver);
     }
 
 }

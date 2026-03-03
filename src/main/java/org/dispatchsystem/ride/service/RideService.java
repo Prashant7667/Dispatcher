@@ -1,4 +1,5 @@
 package org.dispatchsystem.ride.service;
+
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.ride.domain.Ride;
@@ -13,9 +14,11 @@ public class RideService {
     public static RideRepository rideRepository;
     @Autowired
     public static DriverRepository driverRepository;
-    public Ride requestRide(double  startLongitude, double startLatitude, double  endLongitude, double endLatitude, Double fare){
-        User passenger=new User();
-        Ride ride=new Ride();
+
+    public Ride requestRide(double startLongitude, double startLatitude, double endLongitude, double endLatitude,
+            Double fare) {
+        User passenger = new User();
+        Ride ride = new Ride();
         ride.setUser(passenger);
         ride.setDriver(null);
         ride.setStartLongitude(startLongitude);
@@ -24,9 +27,10 @@ public class RideService {
         ride.setEndLatitude(endLatitude);
         ride.setFare(fare);
         ride.setStatus(Ride.RideStatus.REQUESTED);
-        Ride savedRide= rideRepository.save(ride);
+        Ride savedRide = rideRepository.save(ride);
         return savedRide;
     }
+
     public List<Ride> getAllRides() {
         return rideRepository.findAll();
     }
@@ -35,14 +39,17 @@ public class RideService {
         return rideRepository.findById(id).orElseThrow();
 
     }
+
     public List<Ride> getPassengerRideHistory() {
-       String email = "pkp@gmail.com";
-       return rideRepository.findByPassengerEmail(email);
+        String email = "pkp@gmail.com";
+        return rideRepository.findByUserEmail(email);
     }
+
     public List<Ride> getDriverRideHistory() {
         String email = "pkp@gmail.com";
         return rideRepository.findByDriverEmail(email);
     }
+
     public Ride updateRide(Long id, Ride updatedData) {
         Ride existingRide = getRideById(id);
         existingRide.setStartLongitude(updatedData.getStartLongitude());
@@ -52,6 +59,7 @@ public class RideService {
         existingRide.setFare(updatedData.getFare());
         return rideRepository.save(existingRide);
     }
+
     public void deleteRide(Long id) {
         Ride ride = getRideById(id);
         Driver driver = ride.getDriver();
