@@ -32,4 +32,17 @@ public class RideBroadcastService {
         }
 
     }
+    public void sendOfferToDriver(Driver driver, Ride ride){
+        WebSocketSession session=registry.getAll().get(driver.getEmail());
+        if(session==null || !session.isOpen()){
+            return;
+        }
+        try{
+            String payload= objectMapper.writeValueAsString(ride);
+            session.sendMessage(new TextMessage(payload));
+        }
+        catch (Exception e){
+            registry.remove(driver.getEmail());
+        }
+    }
 }

@@ -1,8 +1,11 @@
 package org.dispatchsystem.ride.service;
+import org.dispatchsystem.dispatch.orchestrator.DispatchOrchestrator;
+import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.driver.service.DriverService;
 import org.dispatchsystem.ride.domain.Ride;
+import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideRepository;
 import org.dispatchsystem.user.repository.UserRepository;
 import org.dispatchsystem.user.service.UserService;
@@ -18,13 +21,15 @@ public class RideService {
     private final UserRepository userRepository;
     private final DriverService driverService;
     private final UserService userService;
+    private final DispatchOrchestrator dispatchOrchestrator;
 
-    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserRepository userRepository, DriverService driverService, UserService userService){
+    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserRepository userRepository, DriverService driverService, UserService userService, DispatchOrchestrator dispatchOrchestrator){
         this.rideRepository=rideRepository;
         this.driverRepository=driverRepository;
         this.userRepository=userRepository;
         this.driverService=driverService;
         this.userService=userService;
+        this.dispatchOrchestrator=dispatchOrchestrator;
     }
 
     public Ride requestRide(double startLongitude, double startLatitude, double endLongitude, double endLatitude,
@@ -38,8 +43,9 @@ public class RideService {
         ride.setEndLongitude(endLongitude);
         ride.setEndLatitude(endLatitude);
         ride.setFare(fare);
-        ride.setStatus(Ride.RideStatus.REQUESTED);
+        ride.setStatus(RideStatus.REQUESTED);
         Ride savedRide = rideRepository.save(ride);
+        dispatchOrchestrator.dispatch(ride);
         return savedRide;
     }
 
@@ -72,8 +78,8 @@ public class RideService {
     public void deleteRide(Long id) {
         Ride ride = getRideById(id);
         Driver driver = ride.getDriver();
-        if (driver != null && driver.getAvailabilityStatus() == Driver.AvailabilityStatus.UNAVAILABLE) {
-            driver.setAvailabilityStatus(Driver.AvailabilityStatus.AVAILABLE);
+        if (driver != null && driver.getAvailabilityStatus() == AvailabilityStatus.UNAVAILABLE) {
+            driver.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
             driverRepository.save(driver);
         }
         rideRepository.delete(ride);

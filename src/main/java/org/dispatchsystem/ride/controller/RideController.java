@@ -7,7 +7,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 @RestController
 @RequestMapping("rides")
@@ -34,18 +33,16 @@ public class RideController {
     }
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<Ride> updateRide(@PathVariable Long id, @Valid @RequestBody Ride ride) {
+    public ResponseEntity<Ride> updateRide(@PathVariable Long id, @Valid @RequestBody Ride ride) throws IllegalAccessException {
         Ride updatedEntity = new Ride();
         updatedEntity.setStartLongitude(ride.getStartLongitude());
         updatedEntity.setStartLatitude(ride.getStartLatitude());
         updatedEntity.setEndLatitude(ride.getEndLatitude());
         updatedEntity.setEndLongitude(ride.getEndLongitude());
-        if (ride.getStatus() != null) {
-            updatedEntity.setStatus(Ride.RideStatus.valueOf(String.valueOf(ride.getStatus())));
-        }
-
         updatedEntity.setFare(ride.getFare());
-
+        if(ride.getStatus()!=updatedEntity.getStatus()){
+            throw new IllegalStateException("We can't change the status");
+        }
         Ride savedRide = rideService.updateRide(id, updatedEntity);
         return ResponseEntity.ok(savedRide);
     }
