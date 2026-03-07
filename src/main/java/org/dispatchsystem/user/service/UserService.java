@@ -1,6 +1,7 @@
 package org.dispatchsystem.user.service;
 
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
+import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.user.domain.User;
 import org.dispatchsystem.user.repository.UserRepository;
 import org.springframework.security.core.Authentication;
@@ -42,7 +43,7 @@ public class UserService {
             existingPassenger.setName(updatedData.getName());
         }
         if (updatedData.getPassword() != null && !updatedData.getPassword().isBlank()) {
-            existingPassenger.setPassword(updatedData.getPassword());
+            existingPassenger.setPassword(passwordEncoder.encode(updatedData.getPassword()));
         }
         if (updatedData.getPhoneNumber() != null) {
             existingPassenger.setPhoneNumber(updatedData.getPhoneNumber());

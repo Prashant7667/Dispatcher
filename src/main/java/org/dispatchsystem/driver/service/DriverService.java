@@ -1,5 +1,6 @@
 package org.dispatchsystem.driver.service;
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
+import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
 import org.springframework.security.core.Authentication;
@@ -41,7 +42,7 @@ public class DriverService {
             existingDriver.setName(updatedData.getName());
 
         if (updatedData.getPassword() != null && !updatedData.getPassword().isBlank())
-            existingDriver.setPassword(updatedData.getPassword());
+            existingDriver.setPassword(passwordEncoder.encode(updatedData.getPassword()));
 
         if (updatedData.getPhoneNumber() != null)
             existingDriver.setPhoneNumber(updatedData.getPhoneNumber());
@@ -62,9 +63,11 @@ public class DriverService {
     }
 
     public void deleteDriver() {
+        Driver driver=getCurrentDriver();
+        driverRepository.delete(driver);
     }
 
-    public Driver updateDriverAvailability(Driver.AvailabilityStatus status) {
+    public Driver updateDriverAvailability(AvailabilityStatus status) {
         Driver driver=getCurrentDriver();
         if(!driver.getAvailabilityStatus().equals(status)){
             driver.setAvailabilityStatus(status);

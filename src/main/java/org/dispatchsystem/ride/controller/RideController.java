@@ -1,22 +1,22 @@
 package org.dispatchsystem.ride.controller;
 
 import jakarta.validation.Valid;
+import org.dispatchsystem.common.exceptions.InvalidRideStateException;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.service.RideService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
-
+@RestController
+@RequestMapping("rides")
 public class RideController {
-    @Autowired
-    public static RideService rideService;
+    private final RideService rideService;
+    RideController(RideService rideService){
+        this.rideService=rideService;
+    }
+    @PostMapping("/request")
     public ResponseEntity<Ride> requestRide(@Valid @RequestBody Ride req){
         Ride requestedRide= rideService.requestRide(
                 req.getStartLongitude(),
@@ -34,18 +34,16 @@ public class RideController {
     }
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<Ride> updateRide(@PathVariable Long id, @Valid @RequestBody Ride ride) {
+    public ResponseEntity<Ride> updateRide(@PathVariable Long id, @Valid @RequestBody Ride ride) throws IllegalAccessException {
         Ride updatedEntity = new Ride();
         updatedEntity.setStartLongitude(ride.getStartLongitude());
         updatedEntity.setStartLatitude(ride.getStartLatitude());
         updatedEntity.setEndLatitude(ride.getEndLatitude());
         updatedEntity.setEndLongitude(ride.getEndLongitude());
-        if (ride.getStatus() != null) {
-            updatedEntity.setStatus(Ride.RideStatus.valueOf(String.valueOf(ride.getStatus())));
-        }
-
         updatedEntity.setFare(ride.getFare());
-
+        if(ride.getStatus()!=updatedEntity.getStatus()){
+            throw new InvalidRideStateException("We can't change the status");
+        }
         Ride savedRide = rideService.updateRide(id, updatedEntity);
         return ResponseEntity.ok(savedRide);
     }
