@@ -1,6 +1,7 @@
 package org.dispatchsystem.ride.controller;
 
 import jakarta.validation.Valid;
+import org.dispatchsystem.common.exceptions.InvalidRideStateException;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.service.RideService;
 import org.springframework.http.HttpStatus;
@@ -41,7 +42,7 @@ public class RideController {
         updatedEntity.setEndLongitude(ride.getEndLongitude());
         updatedEntity.setFare(ride.getFare());
         if(ride.getStatus()!=updatedEntity.getStatus()){
-            throw new IllegalStateException("We can't change the status");
+            throw new InvalidRideStateException("We can't change the status");
         }
         Ride savedRide = rideService.updateRide(id, updatedEntity);
         return ResponseEntity.ok(savedRide);

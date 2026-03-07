@@ -1,4 +1,5 @@
 package org.dispatchsystem.ride.service;
+import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
 import org.dispatchsystem.dispatch.orchestrator.DispatchOrchestrator;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
@@ -53,8 +54,8 @@ public class RideService {
         return rideRepository.findAll();
     }
 
-    public Ride getRideById(Long id) {
-        return rideRepository.findById(id).orElseThrow();
+    public Ride getRideById(Long id) throws ResourceNotFoundException {
+        return rideRepository.findById(id).orElseThrow(()->new ResourceNotFoundException("Ride not found with id: " + id));
 
     }
 
