@@ -1,5 +1,4 @@
 package org.dispatchsystem.ride.domain;
-
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.dispatchsystem.driver.domain.Driver;
@@ -23,6 +22,7 @@ public class Ride {
     private double startLatitude;
     private double endLongitude;
     private double endLatitude;
+    @Enumerated(EnumType.STRING)
     private RideStatus status = RideStatus.REQUESTED;
 
     private Double fare;
@@ -31,11 +31,4 @@ public class Ride {
     @ManyToOne
     private User user;
 
-    public enum RideStatus {
-        REQUESTED,
-        ACCEPTED,
-        IN_PROGRESS,
-        COMPLETED,
-        CANCELLED
-    }
 }
