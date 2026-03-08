@@ -1,4 +1,6 @@
 package org.dispatchsystem.ride.service;
+import org.dispatchsystem.common.events.RideRequestedEvent;
+import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
 import org.dispatchsystem.dispatch.orchestrator.DispatchOrchestrator;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
@@ -10,6 +12,7 @@ import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideRepository;
 import org.dispatchsystem.user.repository.UserRepository;
 import org.dispatchsystem.user.service.UserService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,14 +26,18 @@ public class RideService {
     private final DriverService driverService;
     private final UserService userService;
     private final DispatchOrchestrator dispatchOrchestrator;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final RideStateMachine rideStateMachine;
 
-    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserRepository userRepository, DriverService driverService, UserService userService, DispatchOrchestrator dispatchOrchestrator){
+    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserRepository userRepository, DriverService driverService, UserService userService, DispatchOrchestrator dispatchOrchestrator, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
         this.rideRepository=rideRepository;
         this.driverRepository=driverRepository;
         this.userRepository=userRepository;
         this.driverService=driverService;
         this.userService=userService;
         this.dispatchOrchestrator=dispatchOrchestrator;
+        this.applicationEventPublisher=applicationEventPublisher;
+        this.rideStateMachine=rideStateMachine;
     }
 
     public Ride requestRide(double startLongitude, double startLatitude, double endLongitude, double endLatitude,
@@ -46,7 +53,8 @@ public class RideService {
         ride.setFare(fare);
         ride.setStatus(RideStatus.REQUESTED);
         Ride savedRide = rideRepository.save(ride);
-        dispatchOrchestrator.dispatch(ride);
+        applicationEventPublisher.publishEvent(new RideRequestedEvent(savedRide));
+        dispatchOrchestrator.dispatch(savedRide);
         return savedRide;
     }
 
@@ -57,6 +65,18 @@ public class RideService {
     public Ride getRideById(Long id) throws ResourceNotFoundException {
         return rideRepository.findById(id).orElseThrow(()->new ResourceNotFoundException("Ride not found with id: " + id));
 
+    }
+    public Ride cancelRideByPassenger(Long rideId){
+        Authentication auth=SecurityContextHolder.getContext().getAuthentication();
+        Ride ride=getRideById(rideId);
+        if(!ride.getUser().getEmail().equals(auth.getName())){
+            throw new BusinessRuleViolationException("You are not authorised to process this request");
+        }
+        if(ride.getStatus()== RideStatus.COMPLETED){
+            throw new BusinessRuleViolationException("Ride Is Already Completed");
+        }
+        rideStateMachine.transition(ride,RideStatus.CANCELLED);
+        return rideRepository.save(ride);
     }
 
     public List<Ride> getPassengerRideHistory() {

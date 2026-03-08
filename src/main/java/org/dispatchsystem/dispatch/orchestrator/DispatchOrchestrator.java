@@ -6,6 +6,7 @@ import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideRepository;
+import org.dispatchsystem.ride.service.RideStateMachine;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -17,10 +18,12 @@ public class DispatchOrchestrator {
     private final GeoService geoService;
     private final OfferManager offerManager;
     private final RideRepository rideRepository;
-    DispatchOrchestrator(GeoService geoService, OfferManager offerManager, RideRepository rideRepository){
+    private final RideStateMachine rideStateMachine;
+    DispatchOrchestrator(GeoService geoService, OfferManager offerManager, RideRepository rideRepository, RideStateMachine rideStateMachine){
         this.geoService = geoService;
         this.offerManager = offerManager;
         this.rideRepository = rideRepository;
+        this.rideStateMachine = rideStateMachine;
     }
     private List<Driver> rankByDistance(List<Driver> drivers, double lat, double lon) {
         return drivers.stream()
@@ -31,7 +34,7 @@ public class DispatchOrchestrator {
     public void dispatch(Ride ride){
         List<Driver> nearbyDrivers = geoService.findNearbyAvailableDrivers(ride.getStartLatitude(), ride.getStartLongitude(), 5.0);
         if (nearbyDrivers.isEmpty()) {
-            ride.setStatus(RideStatus.CANCELLED);
+            rideStateMachine.transition(ride, RideStatus.CANCELLED);
             rideRepository.save(ride);
             // TODO: notify rider "no drivers available"
             return;
@@ -44,7 +47,7 @@ public class DispatchOrchestrator {
                 ride.getStartLongitude()
         );
         // Step 3: Start the offer flow — try drivers one by one
-        ride.setStatus(RideStatus.DISPATCHING);
+        rideStateMachine.transition(ride, RideStatus.DISPATCHING);
         rideRepository.save(ride);
         offerManager.startOfferFlow(ride, rankedDrivers);
     }

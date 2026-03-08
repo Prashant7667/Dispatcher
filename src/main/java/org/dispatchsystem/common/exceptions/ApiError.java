@@ -1,6 +1,8 @@
 package org.dispatchsystem.common.exceptions;
-import java.time.LocalDateTime;
+import lombok.Data;
 
+import java.time.LocalDateTime;
+@Data
 public class ApiError {
     private int status;
     private String error;

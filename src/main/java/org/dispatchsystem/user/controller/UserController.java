@@ -5,11 +5,12 @@ import org.dispatchsystem.common.config.JwtUtils;
 import org.dispatchsystem.common.config.UserDetailsImpl;
 import org.dispatchsystem.user.domain.LoginRequest;
 import org.dispatchsystem.user.domain.User;
-import org.dispatchsystem.user.repository.UserRepository;
+import org.dispatchsystem.user.dto.UserRequestDTO;
+import org.dispatchsystem.user.dto.UserResponseDTO;
+import org.dispatchsystem.user.dto.UserUpdateDTO;
 import org.dispatchsystem.user.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -17,24 +18,28 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/users")
 public class UserController {
     private final UserService passengerService;
-    private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
-    UserController(UserService passengerService,UserRepository userRepository,AuthenticationManager authenticationManager,JwtUtils jwtUtils){
+    UserController(UserService passengerService, AuthenticationManager authenticationManager, JwtUtils jwtUtils){
         this.passengerService=passengerService;
-        this.userRepository=userRepository;
         this.authenticationManager=authenticationManager;
         this.jwtUtils=jwtUtils;
     }
     @PostMapping
-    public ResponseEntity<User>RegisterUser(@Valid @RequestBody User user){
-        passengerService.registerUser(user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(user);
+    public ResponseEntity<UserResponseDTO>RegisterUser(@Valid @RequestBody UserRequestDTO userRequest){
+        User user = new User();
+        user.setName(userRequest.getName());
+        user.setEmail(userRequest.getEmail());
+        user.setPassword(userRequest.getPassword());
+        user.setPhoneNumber(userRequest.getPhoneNumber());
+        User savedUser = passengerService.registerUser(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDto(savedUser));
     }
     @PostMapping("/login")
     public ResponseEntity<?>loginRequest(@Valid @RequestBody LoginRequest loginRequest){
@@ -45,24 +50,37 @@ public class UserController {
         return ResponseEntity.ok(Map.of("token",jwt,"role",userDetails.getRole()));
     }
     @GetMapping("/all")
-    public ResponseEntity<List<User>> getAllPassengers() {
+    public ResponseEntity<List<UserResponseDTO>> getAllPassengers() {
         List<User>savedPassengers= passengerService.getAllPassengers();
-        return ResponseEntity.ok(savedPassengers);
+        return ResponseEntity.ok(savedPassengers.stream().map(this::toResponseDto).collect(Collectors.toList()));
 
     }
     @GetMapping("/me/details")
-    public ResponseEntity<User> getCurrentPassengerDetails() {
+    public ResponseEntity<UserResponseDTO> getCurrentPassengerDetails() {
         User passenger = passengerService.getCurrentPassengerDetails();
-        return ResponseEntity.ok(passenger);
+        return ResponseEntity.ok(toResponseDto(passenger));
     }
     @PutMapping("/me/update")
-    public ResponseEntity<User> updatePassenger( @RequestBody User passenger) {
-        User savedPassenger = passengerService.updatePassenger(passenger);
-        return ResponseEntity.ok(savedPassenger);
+    public ResponseEntity<UserResponseDTO> updatePassenger(@RequestBody UserUpdateDTO passenger) {
+        User updatedPassenger = new User();
+        updatedPassenger.setName(passenger.getName());
+        updatedPassenger.setPassword(passenger.getPassword());
+        updatedPassenger.setPhoneNumber(passenger.getPhoneNumber());
+        User savedPassenger = passengerService.updatePassenger(updatedPassenger);
+        return ResponseEntity.ok(toResponseDto(savedPassenger));
     }
     @DeleteMapping("/me/delete")
     public ResponseEntity<Void> deletePassenger() {
         passengerService.deletePassenger();
         return ResponseEntity.noContent().build();
+    }
+
+    private UserResponseDTO toResponseDto(User user) {
+        UserResponseDTO responseDTO = new UserResponseDTO();
+        responseDTO.setId(user.getId());
+        responseDTO.setName(user.getName());
+        responseDTO.setEmail(user.getEmail());
+        responseDTO.setPhoneNumber(user.getPhoneNumber());
+        return responseDTO;
     }
 }

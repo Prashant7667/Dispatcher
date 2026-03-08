@@ -16,6 +16,11 @@ public class GlobalExceptionHandler {
         ApiError error = new ApiError(404, "Not Found", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
+    @ExceptionHandler(BusinessRuleViolationException.class)
+    public ResponseEntity<ApiError> handleBusiness(BusinessRuleViolationException ex) {
+        ApiError error = new ApiError(409,"BUSINESS_RULE_VIOLATION", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
 
     // 409 — Invalid state transition
     @ExceptionHandler(InvalidRideStateException.class)

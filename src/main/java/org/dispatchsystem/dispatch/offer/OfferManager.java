@@ -1,5 +1,8 @@
 package org.dispatchsystem.dispatch.offer;
 
+import org.dispatchsystem.common.events.DriverAssignedEvent;
+import org.dispatchsystem.common.events.NoDriversAvailableEvent;
+import org.dispatchsystem.common.events.RideCancelledEvent;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
@@ -10,6 +13,8 @@ import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideOfferRepository;
 import org.dispatchsystem.ride.repository.RideRepository;
 import org.dispatchsystem.ride.service.RideBroadcastService;
+import org.dispatchsystem.ride.service.RideStateMachine;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,12 +28,16 @@ public class OfferManager {
     private final RideBroadcastService broadcastService;
     private final RideRepository rideRepository;
     private final DriverRepository driverRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final RideStateMachine rideStateMachine;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
-    OfferManager(RideOfferRepository offerRepository, RideBroadcastService rideBroadcastService, RideRepository rideRepository, DriverRepository driverRepository){
+    OfferManager(RideOfferRepository offerRepository, RideBroadcastService rideBroadcastService, RideRepository rideRepository, DriverRepository driverRepository, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
         this.offerRepository = offerRepository;
         this.broadcastService = rideBroadcastService;
         this.rideRepository = rideRepository;
         this.driverRepository = driverRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.rideStateMachine = rideStateMachine;
     }
     // Tracks which ride is on which offer attempt
     // Key: rideId → Value: the current state of the offer flow
@@ -98,7 +107,7 @@ public class OfferManager {
             // Assign driver to ride
             Ride ride = state.getRide();
             ride.setDriver(offer.getDriver());
-            ride.setStatus(RideStatus.DRIVER_ASSIGNED);
+            rideStateMachine.transition(ride, RideStatus.DRIVER_ASSIGNED);
             rideRepository.save(ride);
 
             // Mark driver as unavailable
@@ -108,6 +117,7 @@ public class OfferManager {
 
             // Clean up
             activeFlows.remove(rideId);
+            applicationEventPublisher.publishEvent(new DriverAssignedEvent(driver,ride));
 
             // TODO: Notify rider that driver was found
 
@@ -116,7 +126,6 @@ public class OfferManager {
             RideOffer offer = state.getCurrentOffer();
             offer.setStatus(OfferStatus.REJECTED);
             offerRepository.save(offer);
-
             state.incrementIndex();
             sendNextOffer(state);
         }
@@ -135,9 +144,11 @@ public class OfferManager {
     }
 
     private void handleNoDriversAvailable(Ride ride) {
-        ride.setStatus(RideStatus.CANCELLED);
+        rideStateMachine.transition(ride, RideStatus.CANCELLED);
         rideRepository.save(ride);
         activeFlows.remove(ride.getId());
+        applicationEventPublisher.publishEvent(new NoDriversAvailableEvent(ride));
+        applicationEventPublisher.publishEvent(new RideCancelledEvent(ride));
         // TODO: Notify rider
     }
 }
