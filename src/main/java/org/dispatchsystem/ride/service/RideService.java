@@ -7,6 +7,8 @@ import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.driver.service.DriverService;
+import org.dispatchsystem.ride.domain.BookingType;
+import org.dispatchsystem.ride.domain.RentalPlan;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideRepository;
@@ -17,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 @Service
 public class RideService {
@@ -41,6 +44,10 @@ public class RideService {
     }
 
     public Ride requestRide(double startLongitude, double startLatitude, double endLongitude, double endLatitude,
+            BookingType bookingType,
+            LocalDateTime scheduledStart,
+            Integer estimatedDurationMinutes,
+            RentalPlan rentalPlan,
             Double fare) {
         var passenger=userService.getCurrentPassengerDetails();
         Ride ride = new Ride();
@@ -50,6 +57,10 @@ public class RideService {
         ride.setStartLatitude(startLatitude);
         ride.setEndLongitude(endLongitude);
         ride.setEndLatitude(endLatitude);
+        ride.setBookingType(bookingType);
+        ride.setScheduledStart(scheduledStart);
+        ride.setEstimatedDurationMinutes(estimatedDurationMinutes);
+        ride.setRentalPlan(rentalPlan == null ? RentalPlan.NONE : rentalPlan);
         ride.setFare(fare);
         ride.setStatus(RideStatus.REQUESTED);
         Ride savedRide = rideRepository.save(ride);
@@ -79,6 +90,37 @@ public class RideService {
         return rideRepository.save(ride);
     }
 
+    public Ride markDriverEnRoute(Long rideId) {
+        Ride ride = getRideForCurrentDriver(rideId);
+        rideStateMachine.transition(ride, RideStatus.DRIVER_EN_ROUTE);
+        return rideRepository.save(ride);
+    }
+
+    public Ride markDriverArrived(Long rideId) {
+        Ride ride = getRideForCurrentDriver(rideId);
+        rideStateMachine.transition(ride, RideStatus.DRIVER_ARRIVED);
+        return rideRepository.save(ride);
+    }
+
+    public Ride startRide(Long rideId) {
+        Ride ride = getRideForCurrentDriver(rideId);
+        rideStateMachine.transition(ride, RideStatus.IN_PROGRESS);
+        return rideRepository.save(ride);
+    }
+
+    public Ride completeRide(Long rideId) {
+        Ride ride = getRideForCurrentDriver(rideId);
+        rideStateMachine.transition(ride, RideStatus.COMPLETED);
+
+        Driver driver = ride.getDriver();
+        if (driver != null && driver.getAvailabilityStatus() == AvailabilityStatus.UNAVAILABLE) {
+            driver.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+            driverRepository.save(driver);
+        }
+
+        return rideRepository.save(ride);
+    }
+
     public List<Ride> getPassengerRideHistory() {
        Authentication auth=SecurityContextHolder.getContext().getAuthentication();
         return rideRepository.findByUserEmail(auth.getName());
@@ -93,6 +135,10 @@ public class RideService {
         existingRide.setStartLatitude(updatedData.getStartLatitude());
         existingRide.setEndLatitude(updatedData.getEndLatitude());
         existingRide.setEndLongitude(updatedData.getEndLongitude());
+        existingRide.setBookingType(updatedData.getBookingType());
+        existingRide.setScheduledStart(updatedData.getScheduledStart());
+        existingRide.setEstimatedDurationMinutes(updatedData.getEstimatedDurationMinutes());
+        existingRide.setRentalPlan(updatedData.getRentalPlan());
         existingRide.setFare(updatedData.getFare());
         return rideRepository.save(existingRide);
     }
@@ -104,5 +150,20 @@ public class RideService {
             driverRepository.save(driver);
         }
         rideRepository.delete(ride);
+    }
+
+    private Ride getRideForCurrentDriver(Long rideId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Ride ride = getRideById(rideId);
+
+        if (ride.getDriver() == null) {
+            throw new BusinessRuleViolationException("No driver is assigned to this ride");
+        }
+
+        if (!ride.getDriver().getEmail().equals(auth.getName())) {
+            throw new BusinessRuleViolationException("You are not authorised to process this ride");
+        }
+
+        return ride;
     }
 }

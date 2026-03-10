@@ -27,6 +27,10 @@ public class RideController {
                 req.getStartLatitude(),
                 req.getEndLongitude(),
                 req.getEndLatitude(),
+                req.getBookingType(),
+                req.getScheduledStart(),
+                req.getEstimatedDurationMinutes(),
+                req.getRentalPlan(),
                 req.getFare()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDto(requestedRide));
@@ -36,7 +40,7 @@ public class RideController {
         Ride ride = rideService.getRideById(id);
         return ResponseEntity.ok(toResponseDto(ride));
     }
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('PASSENGER')")
     @PostMapping("/me/{rideId}/cancel")
     public ResponseEntity<RideResponseDTO> cancelRideByPassenger(@PathVariable Long rideId){
         Ride cancelRide=rideService.cancelRideByPassenger(rideId);
@@ -50,9 +54,37 @@ public class RideController {
         updatedEntity.setStartLatitude(ride.getStartLatitude());
         updatedEntity.setEndLatitude(ride.getEndLatitude());
         updatedEntity.setEndLongitude(ride.getEndLongitude());
+        updatedEntity.setBookingType(ride.getBookingType());
+        updatedEntity.setScheduledStart(ride.getScheduledStart());
+        updatedEntity.setEstimatedDurationMinutes(ride.getEstimatedDurationMinutes());
+        updatedEntity.setRentalPlan(ride.getRentalPlan());
         updatedEntity.setFare(ride.getFare());
         Ride savedRide = rideService.updateRide(id, updatedEntity);
         return ResponseEntity.ok(toResponseDto(savedRide));
+    }
+    @PreAuthorize("hasRole('DRIVER')")
+    @PostMapping("/me/{rideId}/en-route")
+    public ResponseEntity<RideResponseDTO> markDriverEnRoute(@PathVariable Long rideId) {
+        Ride updatedRide = rideService.markDriverEnRoute(rideId);
+        return ResponseEntity.ok(toResponseDto(updatedRide));
+    }
+    @PreAuthorize("hasRole('DRIVER')")
+    @PostMapping("/me/{rideId}/arrived")
+    public ResponseEntity<RideResponseDTO> markDriverArrived(@PathVariable Long rideId) {
+        Ride updatedRide = rideService.markDriverArrived(rideId);
+        return ResponseEntity.ok(toResponseDto(updatedRide));
+    }
+    @PreAuthorize("hasRole('DRIVER')")
+    @PostMapping("/me/{rideId}/start")
+    public ResponseEntity<RideResponseDTO> startRide(@PathVariable Long rideId) {
+        Ride updatedRide = rideService.startRide(rideId);
+        return ResponseEntity.ok(toResponseDto(updatedRide));
+    }
+    @PreAuthorize("hasRole('DRIVER')")
+    @PostMapping("/me/{rideId}/complete")
+    public ResponseEntity<RideResponseDTO> completeRide(@PathVariable Long rideId) {
+        Ride updatedRide = rideService.completeRide(rideId);
+        return ResponseEntity.ok(toResponseDto(updatedRide));
     }
     @PreAuthorize("hasRole('DRIVER')")
     @GetMapping("/me/driver/rideHistory")
@@ -60,7 +92,7 @@ public class RideController {
         List<Ride>rides= rideService.getDriverRideHistory();
         return ResponseEntity.ok(rides.stream().map(this::toResponseDto).collect(Collectors.toList()));
     }
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('PASSENGER')")
     @GetMapping("/me/user/rideHistory")
     public ResponseEntity<List<RideResponseDTO>>ridePassengerHistory(){
         List<Ride>rides= rideService.getPassengerRideHistory();
@@ -74,6 +106,10 @@ public class RideController {
         responseDTO.setStartLatitude(ride.getStartLatitude());
         responseDTO.setEndLongitude(ride.getEndLongitude());
         responseDTO.setEndLatitude(ride.getEndLatitude());
+        responseDTO.setBookingType(ride.getBookingType());
+        responseDTO.setScheduledStart(ride.getScheduledStart());
+        responseDTO.setEstimatedDurationMinutes(ride.getEstimatedDurationMinutes());
+        responseDTO.setRentalPlan(ride.getRentalPlan());
         responseDTO.setStatus(ride.getStatus());
         responseDTO.setFare(ride.getFare());
         if (ride.getDriver() != null) {

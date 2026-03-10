@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("Drivers")
+@RequestMapping("/drivers")
 public class DriverController {
     private DriverService driverService;
     DriverController(DriverService driverService){
@@ -34,7 +34,7 @@ public class DriverController {
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDto(savedDriver));
 
     }
-    @GetMapping("/AllDrivers")
+    @GetMapping
     public ResponseEntity<List<DriverResponseDTO>> getAllDrivers() {
         List<Driver>savedDrivers= driverService.getAllDrivers();
         return ResponseEntity.ok(savedDrivers.stream().map(this::toResponseDto).collect(Collectors.toList()));

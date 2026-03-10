@@ -3,6 +3,7 @@ package org.dispatchsystem.dispatch.offer;
 import org.dispatchsystem.common.events.DriverAssignedEvent;
 import org.dispatchsystem.common.events.NoDriversAvailableEvent;
 import org.dispatchsystem.common.events.RideCancelledEvent;
+import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
@@ -95,12 +96,24 @@ public class OfferManager {
         OfferFlowState state = activeFlows.get(rideId);
         if (state == null) return; // ride already assigned or cancelled
 
+        RideOffer currentOffer = state.getCurrentOffer();
+        if (currentOffer == null || currentOffer.getDriver() == null) {
+            throw new BusinessRuleViolationException("No active offer exists for this ride");
+        }
+
+        String offeredDriverEmail = currentOffer.getDriver().getEmail();
+        if (offeredDriverEmail == null || !offeredDriverEmail.equalsIgnoreCase(driverEmail)) {
+            throw new BusinessRuleViolationException("This driver is not authorized to respond to the current offer");
+        }
+
         // Cancel the timeout since driver responded
-        state.getTimeoutFuture().cancel(false);
+        if (state.getTimeoutFuture() != null) {
+            state.getTimeoutFuture().cancel(false);
+        }
 
         if ("ACCEPT".equals(response)) {
             // ✅ Driver accepted!
-            RideOffer offer = state.getCurrentOffer();
+            RideOffer offer = currentOffer;
             offer.setStatus(OfferStatus.ACCEPTED);
             offerRepository.save(offer);
 
@@ -123,11 +136,13 @@ public class OfferManager {
 
         } else if ("REJECT".equals(response)) {
             // ❌ Driver rejected — try next
-            RideOffer offer = state.getCurrentOffer();
+            RideOffer offer = currentOffer;
             offer.setStatus(OfferStatus.REJECTED);
             offerRepository.save(offer);
             state.incrementIndex();
             sendNextOffer(state);
+        } else {
+            throw new BusinessRuleViolationException("Unsupported driver response: " + response);
         }
     }
 
