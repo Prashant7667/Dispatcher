@@ -2,7 +2,9 @@ package org.dispatchsystem.ride.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dispatchsystem.dispatch.offer.DriverOfferResponse;
+import org.dispatchsystem.dispatch.offer.DriverResponded;
 import org.dispatchsystem.dispatch.offer.OfferManager;
+import org.dispatchsystem.dispatch.offer.OfferStatusState;
 import org.dispatchsystem.driver.service.DriverSessionRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -39,9 +41,16 @@ public class RideSocketHandler extends TextWebSocketHandler {
             String email = (String) session.getAttributes().get("email");
             String payload = textMessage.getPayload();
             DriverOfferResponse response = objectMapper.readValue(payload, DriverOfferResponse.class);
-            offerManager.handleDriverResponse(response.getRideId(),email,response.getMessage());
+            DriverResponded driverResponded=offerManager.handleDriverResponse(response.getRideId(),email,response.getMessage());
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(driverResponded)));
         } catch (Exception e) {
-           e.printStackTrace();
+            e.printStackTrace();
+           try{
+               DriverResponded errorPayload=new DriverResponded(OfferStatusState.ERROR,null,"Unable to process driver response");
+               session.sendMessage(new TextMessage(objectMapper.writeValueAsString(errorPayload)));
+           } catch (Exception ex) {
+               ex.printStackTrace();
+           }
         }
 
 

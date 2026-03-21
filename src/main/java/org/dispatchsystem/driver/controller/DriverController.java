@@ -30,6 +30,10 @@ public class DriverController {
         driverEntity.setVehicleDetails(driver.getVehicleDetails());
         driverEntity.setLongitude(driver.getLongitude());
         driverEntity.setLatitude(driver.getLatitude());
+        driverEntity.setSupportedBookingTypes(driver.getSupportedBookingTypes());
+        driverEntity.setAvailableFrom(driver.getAvailableFrom());
+        driverEntity.setAvailableUntil(driver.getAvailableUntil());
+        driverEntity.setMaxRentalDurationMinutes(driver.getMaxRentalDurationMinutes());
         Driver savedDriver=driverService.createDriver(driverEntity);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDto(savedDriver));
 
@@ -48,6 +52,10 @@ public class DriverController {
         driverEntity.setVehicleDetails(driver.getVehicleDetails());
         driverEntity.setLatitude(driver.getLatitude());
         driverEntity.setLongitude(driver.getLongitude());
+        driverEntity.setSupportedBookingTypes(driver.getSupportedBookingTypes());
+        driverEntity.setAvailableFrom(driver.getAvailableFrom());
+        driverEntity.setAvailableUntil(driver.getAvailableUntil());
+        driverEntity.setMaxRentalDurationMinutes(driver.getMaxRentalDurationMinutes());
         driverEntity.setAvailabilityStatus(driver.getAvailabilityStatus());
         Driver updatedDriver=  driverService.updateDriver(driverEntity);
         return ResponseEntity.ok(toResponseDto(updatedDriver));
@@ -80,6 +88,10 @@ public class DriverController {
         responseDTO.setLongitude(driver.getLongitude());
         responseDTO.setAvgRating(driver.getAvgRating());
         responseDTO.setTotalRating(driver.getTotalRating());
+        responseDTO.setSupportedBookingTypes(driver.getSupportedBookingTypes());
+        responseDTO.setAvailableFrom(driver.getAvailableFrom());
+        responseDTO.setAvailableUntil(driver.getAvailableUntil());
+        responseDTO.setMaxRentalDurationMinutes(driver.getMaxRentalDurationMinutes());
         responseDTO.setAvailabilityStatus(driver.getAvailabilityStatus());
         return responseDTO;
     }
