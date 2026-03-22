@@ -1,7 +1,6 @@
-package org.dispatchsystem.ride.service;
+package org.dispatchsystem.driver.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.dispatchsystem.dispatch.offer.DriverOfferResponse;
 import org.dispatchsystem.dispatch.offer.DriverResponded;
 import org.dispatchsystem.dispatch.offer.OfferManager;
 import org.dispatchsystem.dispatch.offer.OfferStatusState;
@@ -20,12 +19,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class RideSocketHandlerTest {
+class DriverSocketHandlerTest {
 
     private DriverSessionRegistry registry;
     private OfferManager offerManager;
     private ObjectMapper objectMapper;
-    private RideSocketHandler rideSocketHandler;
+    private DriverSocketHandler driverSocketHandler;
     private WebSocketSession session;
 
     @BeforeEach
@@ -33,7 +32,7 @@ class RideSocketHandlerTest {
         registry = mock(DriverSessionRegistry.class);
         offerManager = mock(OfferManager.class);
         objectMapper = new ObjectMapper();
-        rideSocketHandler = new RideSocketHandler(registry, offerManager, objectMapper);
+        driverSocketHandler = new DriverSocketHandler(registry, offerManager, objectMapper);
         session = mock(WebSocketSession.class);
 
         Map<String, Object> attributes = new HashMap<>();
@@ -53,7 +52,7 @@ class RideSocketHandlerTest {
         when(offerManager.handleDriverResponse(42L, "driver@dispatchx.dev", "ACCEPT"))
                 .thenReturn(expectedResponse);
 
-        rideSocketHandler.handleTextMessage(session, new TextMessage(
+        driverSocketHandler.handleTextMessage(session, new TextMessage(
                 """
                 {"rideId":42,"message":"ACCEPT"}
                 """
@@ -69,7 +68,7 @@ class RideSocketHandlerTest {
         when(offerManager.handleDriverResponse(42L, "driver@dispatchx.dev", "ACCEPT"))
                 .thenThrow(new RuntimeException("boom"));
 
-        rideSocketHandler.handleTextMessage(session, new TextMessage(
+        driverSocketHandler.handleTextMessage(session, new TextMessage(
                 """
                 {"rideId":42,"message":"ACCEPT"}
                 """

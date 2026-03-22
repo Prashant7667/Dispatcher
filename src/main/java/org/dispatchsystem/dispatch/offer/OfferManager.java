@@ -1,6 +1,7 @@
 package org.dispatchsystem.dispatch.offer;
 
 import org.dispatchsystem.common.events.DriverAssignedEvent;
+import org.dispatchsystem.common.events.DriverOfferCreatedEvent;
 import org.dispatchsystem.common.events.NoDriversAvailableEvent;
 import org.dispatchsystem.common.events.RideCancelledEvent;
 import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
@@ -13,9 +14,9 @@ import org.dispatchsystem.ride.domain.RideOffer;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideOfferRepository;
 import org.dispatchsystem.ride.repository.RideRepository;
-import org.dispatchsystem.ride.service.RideBroadcastService;
 import org.dispatchsystem.ride.service.RideStateMachine;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,15 +28,13 @@ import java.util.concurrent.*;
 public class OfferManager {
 
     private final RideOfferRepository offerRepository;
-    private final RideBroadcastService broadcastService;
     private final RideRepository rideRepository;
     private final DriverRepository driverRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RideStateMachine rideStateMachine;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
-    OfferManager(RideOfferRepository offerRepository, RideBroadcastService rideBroadcastService, RideRepository rideRepository, DriverRepository driverRepository, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
+    OfferManager(RideOfferRepository offerRepository, RideRepository rideRepository, DriverRepository driverRepository, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
         this.offerRepository = offerRepository;
-        this.broadcastService = rideBroadcastService;
         this.rideRepository = rideRepository;
         this.driverRepository = driverRepository;
         this.applicationEventPublisher = applicationEventPublisher;
@@ -106,8 +105,8 @@ public class OfferManager {
             movingToNextCandidate(state);
             return;
         }
-        broadcastService.sendOfferToDriver(nextDriver, state.getRide());
-
+        applicationEventPublisher.publishEvent(new DriverOfferCreatedEvent(nextDriver,state.getRide()));
+       // broadcastService.sendOfferToDriver(nextDriver, state.getRide());
         // 3. Schedule timeout — if no response in 30s, move to next
         ScheduledFuture<?> timeout = scheduler.schedule(
                 () -> handleOfferTimeout(state),
@@ -116,10 +115,6 @@ public class OfferManager {
         state.setTimeoutFuture(timeout);
     }
 
-    /**
-     * Called when a driver responds via WebSocket.
-     * This is triggered from RideSocketHandler when driver sends ACCEPT/REJECT.
-     */
     public DriverResponded resolveInactiveOfferResponse(Long rideId, String driverEmail) {
         return offerRepository.findTopByDriver_EmailAndRide_IdOrderBySentAtDesc(driverEmail, rideId)
                 .map(offer -> {
@@ -180,7 +175,7 @@ public class OfferManager {
 
             // Clean up
             activeFlows.remove(rideId);
-            applicationEventPublisher.publishEvent(new DriverAssignedEvent(driver,ride));
+            applicationEventPublisher.publishEvent(new DriverAssignedEvent(ride));
             return new DriverResponded(OfferStatusState.SUCCESS,rideId,"Ride is Accepted by the driver");
 
             // TODO: Notify rider that driver was found
@@ -238,7 +233,6 @@ public class OfferManager {
         rideRepository.save(ride);
         activeFlows.remove(ride.getId());
         applicationEventPublisher.publishEvent(new NoDriversAvailableEvent(ride));
-        applicationEventPublisher.publishEvent(new RideCancelledEvent(ride));
         // TODO: Notify rider
     }
 }

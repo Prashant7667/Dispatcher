@@ -1,8 +1,8 @@
 package org.dispatchsystem.dispatch.offer;
 
 import org.dispatchsystem.common.events.DriverAssignedEvent;
+import org.dispatchsystem.common.events.DriverOfferCreatedEvent;
 import org.dispatchsystem.common.events.NoDriversAvailableEvent;
-import org.dispatchsystem.common.events.RideCancelledEvent;
 import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
@@ -16,7 +16,6 @@ import org.dispatchsystem.ride.domain.RentalPlan;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideOfferRepository;
 import org.dispatchsystem.ride.repository.RideRepository;
-import org.dispatchsystem.ride.service.RideBroadcastService;
 import org.dispatchsystem.ride.service.RideStateMachine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +50,6 @@ import static org.mockito.Mockito.when;
 class OfferManagerTest {
 
     private RideOfferRepository offerRepository;
-    private RideBroadcastService broadcastService;
     private RideRepository rideRepository;
     private DriverRepository driverRepository;
     private ApplicationEventPublisher applicationEventPublisher;
@@ -63,14 +61,12 @@ class OfferManagerTest {
     void setUp() {
         nextDriverId = 1L;
         offerRepository = mock(RideOfferRepository.class);
-        broadcastService = mock(RideBroadcastService.class);
         rideRepository = mock(RideRepository.class);
         driverRepository = mock(DriverRepository.class);
         applicationEventPublisher = mock(ApplicationEventPublisher.class);
         rideStateMachine = new RideStateMachine(applicationEventPublisher);
         offerManager = new OfferManager(
                 offerRepository,
-                broadcastService,
                 rideRepository,
                 driverRepository,
                 applicationEventPublisher,
@@ -130,8 +126,12 @@ class OfferManagerTest {
         assertEquals(secondDriver.getEmail(), savedOffers.get(2).getDriver().getEmail());
         assertEquals(OfferStatus.PENDING, savedOffers.get(2).getStatus());
         verify(driverRepository).save(firstDriver);
-        verify(broadcastService).sendOfferToDriver(firstDriver, ride);
-        verify(broadcastService).sendOfferToDriver(secondDriver, ride);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, times(2)).publishEvent(eventCaptor.capture());
+        List<Object> publishedEvents = eventCaptor.getAllValues();
+        assertInstanceOf(DriverOfferCreatedEvent.class, publishedEvents.get(0));
+        assertInstanceOf(DriverOfferCreatedEvent.class, publishedEvents.get(1));
     }
 
     @Test
@@ -162,7 +162,12 @@ class OfferManagerTest {
         assertEquals(secondDriver.getEmail(), savedOffers.get(2).getDriver().getEmail());
         assertEquals(OfferStatus.PENDING, savedOffers.get(2).getStatus());
         verify(driverRepository).save(firstDriver);
-        verify(broadcastService).sendOfferToDriver(secondDriver, ride);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, times(2)).publishEvent(eventCaptor.capture());
+        List<Object> publishedEvents = eventCaptor.getAllValues();
+        assertInstanceOf(DriverOfferCreatedEvent.class, publishedEvents.get(0));
+        assertInstanceOf(DriverOfferCreatedEvent.class, publishedEvents.get(1));
     }
 
     @Test
@@ -180,9 +185,10 @@ class OfferManagerTest {
         assertEquals(AvailabilityStatus.UNAVAILABLE, driver.getAvailabilityStatus());
 
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(applicationEventPublisher, times(2)).publishEvent(eventCaptor.capture());
+        verify(applicationEventPublisher, times(3)).publishEvent(eventCaptor.capture());
         List<Object> publishedEvents = eventCaptor.getAllValues();
-        assertInstanceOf(DriverAssignedEvent.class, publishedEvents.get(1));
+        assertInstanceOf(DriverOfferCreatedEvent.class, publishedEvents.get(0));
+        assertInstanceOf(DriverAssignedEvent.class, publishedEvents.get(2));
     }
 
     @Test
@@ -194,10 +200,9 @@ class OfferManagerTest {
         assertEquals(RideStatus.CANCELLED, ride.getStatus());
 
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(applicationEventPublisher, times(3)).publishEvent(eventCaptor.capture());
+        verify(applicationEventPublisher, times(2)).publishEvent(eventCaptor.capture());
         List<Object> publishedEvents = eventCaptor.getAllValues();
         assertInstanceOf(NoDriversAvailableEvent.class, publishedEvents.get(1));
-        assertInstanceOf(RideCancelledEvent.class, publishedEvents.get(2));
     }
 
     @Test
@@ -222,7 +227,6 @@ class OfferManagerTest {
         assertFalse(activeFlows.containsKey(ride.getId()));
         assertEquals(OfferStatus.CANCELLED, state.getCurrentOffer().getStatus());
         assertNotNull(state.getCurrentOffer().getRespondedAt());
-        verify(broadcastService, never()).sendOfferToDriver(secondDriver, ride);
         verify(offerRepository, times(2)).save(any(RideOffer.class));
     }
 
@@ -231,7 +235,6 @@ class OfferManagerTest {
         offerManager.cancelRideFlow(999L);
 
         verify(offerRepository, never()).save(any(RideOffer.class));
-        verify(broadcastService, never()).sendOfferToDriver(any(Driver.class), any(Ride.class));
     }
 
     @Test
@@ -301,9 +304,11 @@ class OfferManagerTest {
         assertNotNull(savedOffers.get(1).getRespondedAt());
         assertEquals(secondDriver.getEmail(), savedOffers.get(2).getDriver().getEmail());
         assertEquals(OfferStatus.PENDING, savedOffers.get(2).getStatus());
-        verify(broadcastService, never()).sendOfferToDriver(firstDriver, ride);
-        verify(broadcastService).sendOfferToDriver(secondDriver, ride);
         verify(driverRepository, never()).save(firstDriver);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher, times(1)).publishEvent(eventCaptor.capture());
+        assertInstanceOf(DriverOfferCreatedEvent.class, eventCaptor.getValue());
     }
 
     private Ride createRide(Long rideId, RideStatus status) {

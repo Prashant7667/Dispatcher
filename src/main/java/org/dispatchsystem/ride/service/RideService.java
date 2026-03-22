@@ -1,5 +1,5 @@
 package org.dispatchsystem.ride.service;
-import org.dispatchsystem.common.events.RideRequestedEvent;
+import org.dispatchsystem.common.events.RideCancelledEvent;
 import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
 import org.dispatchsystem.dispatch.offer.OfferManager;
@@ -61,7 +61,6 @@ public class RideService {
         ride.setFare(fare);
         ride.setStatus(RideStatus.REQUESTED);
         Ride savedRide = rideRepository.save(ride);
-        applicationEventPublisher.publishEvent(new RideRequestedEvent(savedRide));
         dispatchOrchestrator.dispatch(savedRide);
         return savedRide;
     }
@@ -83,13 +82,16 @@ public class RideService {
         if(ride.getStatus()== RideStatus.COMPLETED){
             throw new BusinessRuleViolationException("Ride Is Already Completed");
         }
+
         rideStateMachine.transition(ride,RideStatus.CANCELLED);
+
         offerManager.cancelRideFlow(rideId);
         Driver driver=ride.getDriver();
         if(driver!=null){
             driver.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
             driverRepository.save(driver);
         }
+        applicationEventPublisher.publishEvent(new RideCancelledEvent(ride));
         return rideRepository.save(ride);
     }
 
