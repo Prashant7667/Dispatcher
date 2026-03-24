@@ -21,7 +21,8 @@ public class Driver {
     private String email;
     private String password;
     private String phoneNumber;
-    private String vehicleDetails;
+    @Embedded
+    private VehicleDetails vehicleDetails;
     private Double latitude;
     private Double longitude;
     private Double avgRating = 0.0;

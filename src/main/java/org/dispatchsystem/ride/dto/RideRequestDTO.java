@@ -2,7 +2,9 @@ package org.dispatchsystem.ride.dto;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
+import org.dispatchsystem.driver.domain.VehicleClass;
 import org.dispatchsystem.ride.domain.BookingType;
 import org.dispatchsystem.ride.domain.RentalPlan;
 
@@ -27,4 +29,9 @@ public class RideRequestDTO {
     @NotNull(message = "Fare is required")
     @Positive(message = "Fare must be positive")
     private Double fare;
+    @NotNull(message = "requestedVehicleClass is required")
+    private VehicleClass requestedVehicleClass;
+    @NotNull(message = "requiredLuggageCapacity is required")
+    @PositiveOrZero(message = "requiredLuggageCapacity must be zero or positive")
+    private Integer requiredLuggageCapacity;
 }

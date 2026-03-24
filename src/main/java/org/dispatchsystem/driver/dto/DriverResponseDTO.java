@@ -3,6 +3,7 @@ package org.dispatchsystem.driver.dto;
 import lombok.Data;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.DriverBookingType;
+import org.dispatchsystem.driver.domain.VehicleDetails;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -13,7 +14,7 @@ public class DriverResponseDTO {
     private String name;
     private String email;
     private String phoneNumber;
-    private String vehicleDetails;
+    private VehicleDetails vehicleDetails;
     private Double latitude;
     private Double longitude;
     private Double avgRating;

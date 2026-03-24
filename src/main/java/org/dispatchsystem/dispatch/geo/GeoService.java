@@ -16,49 +16,6 @@ public class GeoService {
     GeoService(DriverRepository driverRepository){
         this.driverRepository=driverRepository;
     }
-    public List<Driver> findNearbyAvailableDrivers(Ride ride, double radiusKm) {
-        // Get all available drivers (in production, use a spatial index!)
-        List<Driver> availableDrivers = driverRepository
-                .findByAvailabilityStatus(AvailabilityStatus.AVAILABLE);
-        return availableDrivers.stream()
-                .filter(d -> d.getLatitude() != null && d.getLongitude() != null)
-                .filter(d -> haversineDistance(ride.getStartLatitude(), ride.getStartLongitude(), d.getLatitude(), d.getLongitude()) <= radiusKm)
-                .filter(d -> supportsBookingType(d, ride.getBookingType()))
-                .filter(d -> supportsDuration(d, ride.getEstimatedDurationMinutes()))
-                .filter(d -> isAvailableForSchedule(d, ride.getScheduledStart()))
-                .collect(Collectors.toList());
-    }
-
-    private boolean supportsBookingType(Driver driver, BookingType bookingType) {
-        if (bookingType == null) {
-            return true;
-        }
-        if (driver.getSupportedBookingTypes() == null || driver.getSupportedBookingTypes().isEmpty()) {
-            return bookingType == BookingType.TRIP;
-        }
-        return driver.getSupportedBookingTypes().stream().anyMatch(type -> type.name().equals(bookingType.name()));
-    }
-
-    private boolean supportsDuration(Driver driver, Integer estimatedDurationMinutes) {
-        if (estimatedDurationMinutes == null || driver.getMaxRentalDurationMinutes() == null) {
-            return true;
-        }
-        return estimatedDurationMinutes <= driver.getMaxRentalDurationMinutes();
-    }
-
-    private boolean isAvailableForSchedule(Driver driver, LocalDateTime scheduledStart) {
-        if (scheduledStart == null) {
-            return true;
-        }
-        if (driver.getAvailableFrom() != null && scheduledStart.isBefore(driver.getAvailableFrom())) {
-            return false;
-        }
-        if (driver.getAvailableUntil() != null && scheduledStart.isAfter(driver.getAvailableUntil())) {
-            return false;
-        }
-        return true;
-    }
-
     public double haversineDistance(double lat1, double lon1, double lat2, double lon2) {
         final double R = 6371;
         double dLat = Math.toRadians(lat2 - lat1);

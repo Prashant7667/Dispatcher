@@ -2,6 +2,7 @@ package org.dispatchsystem.ride.domain;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.dispatchsystem.driver.domain.Driver;
+import org.dispatchsystem.driver.domain.VehicleClass;
 import org.dispatchsystem.user.domain.User;
 
 import lombok.AllArgsConstructor;
@@ -24,6 +25,9 @@ public class Ride {
     private double startLatitude;
     private double endLongitude;
     private double endLatitude;
+    @Enumerated(EnumType.STRING)
+    private VehicleClass requestedVehicleClass;
+    private int requiredLuggageCapacity;
     @Enumerated(EnumType.STRING)
     private RideStatus status = RideStatus.REQUESTED;
     @Enumerated(EnumType.STRING)
