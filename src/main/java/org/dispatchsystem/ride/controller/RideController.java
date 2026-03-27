@@ -31,7 +31,6 @@ public class RideController {
                 req.getScheduledStart(),
                 req.getEstimatedDurationMinutes(),
                 req.getRentalPlan(),
-                req.getFare(),
                 req.getRequestedVehicleClass(),
                 req.getRequiredLuggageCapacity()
         );
@@ -60,7 +59,6 @@ public class RideController {
         updatedEntity.setScheduledStart(ride.getScheduledStart());
         updatedEntity.setEstimatedDurationMinutes(ride.getEstimatedDurationMinutes());
         updatedEntity.setRentalPlan(ride.getRentalPlan());
-        updatedEntity.setFare(ride.getFare());
         updatedEntity.setRequestedVehicleClass(ride.getRequestedVehicleClass());
         updatedEntity.setRequiredLuggageCapacity(ride.getRequiredLuggageCapacity());
         Ride savedRide = rideService.updateRide(id, updatedEntity);

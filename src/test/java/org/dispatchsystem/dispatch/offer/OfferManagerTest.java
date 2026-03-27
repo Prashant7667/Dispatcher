@@ -16,6 +16,7 @@ import org.dispatchsystem.ride.domain.RentalPlan;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideOfferRepository;
 import org.dispatchsystem.ride.repository.RideRepository;
+import org.dispatchsystem.ride.service.DispatchAuditService;
 import org.dispatchsystem.ride.service.RideStateMachine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,7 @@ class OfferManagerTest {
     private DriverRepository driverRepository;
     private ApplicationEventPublisher applicationEventPublisher;
     private RideStateMachine rideStateMachine;
+    private DispatchAuditService dispatchAuditService;
     private OfferManager offerManager;
     private long nextDriverId;
 
@@ -65,12 +67,14 @@ class OfferManagerTest {
         driverRepository = mock(DriverRepository.class);
         applicationEventPublisher = mock(ApplicationEventPublisher.class);
         rideStateMachine = new RideStateMachine(applicationEventPublisher);
+        dispatchAuditService = mock(DispatchAuditService.class);
         offerManager = new OfferManager(
                 offerRepository,
                 rideRepository,
                 driverRepository,
                 applicationEventPublisher,
-                rideStateMachine
+                rideStateMachine,
+                dispatchAuditService
         );
 
         when(offerRepository.save(any(RideOffer.class))).thenAnswer(invocation -> invocation.getArgument(0));

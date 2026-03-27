@@ -32,10 +32,16 @@ public class Ride {
     private RideStatus status = RideStatus.REQUESTED;
     @Enumerated(EnumType.STRING)
     private BookingType bookingType = BookingType.TRIP;
-    private LocalDateTime scheduledStart;
     private Integer estimatedDurationMinutes;
     @Enumerated(EnumType.STRING)
     private RentalPlan rentalPlan = RentalPlan.NONE;
+    private LocalDateTime createdAt;
+    private LocalDateTime scheduledStart;
+    private LocalDateTime dispatchStartedAt;
+    private LocalDateTime driverAssignedAt;
+    private LocalDateTime cancelledAt;
+    private LocalDateTime completedAt;
+
 
     private Double fare;
     @ManyToOne

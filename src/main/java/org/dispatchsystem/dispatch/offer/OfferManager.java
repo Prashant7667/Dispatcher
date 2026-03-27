@@ -3,7 +3,7 @@ package org.dispatchsystem.dispatch.offer;
 import org.dispatchsystem.common.events.DriverAssignedEvent;
 import org.dispatchsystem.common.events.DriverOfferCreatedEvent;
 import org.dispatchsystem.common.events.NoDriversAvailableEvent;
-import org.dispatchsystem.common.events.RideCancelledEvent;
+import org.dispatchsystem.common.events.domains.ReasonCode;
 import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
@@ -14,9 +14,9 @@ import org.dispatchsystem.ride.domain.RideOffer;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideOfferRepository;
 import org.dispatchsystem.ride.repository.RideRepository;
+import org.dispatchsystem.ride.service.DispatchAuditService;
 import org.dispatchsystem.ride.service.RideStateMachine;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,31 +32,19 @@ public class OfferManager {
     private final DriverRepository driverRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RideStateMachine rideStateMachine;
+    private final DispatchAuditService dispatchAuditService;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
-    OfferManager(RideOfferRepository offerRepository, RideRepository rideRepository, DriverRepository driverRepository, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
+    OfferManager(RideOfferRepository offerRepository, RideRepository rideRepository, DriverRepository driverRepository, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine, DispatchAuditService dispatchAuditService){
         this.offerRepository = offerRepository;
         this.rideRepository = rideRepository;
         this.driverRepository = driverRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.rideStateMachine = rideStateMachine;
+        this.dispatchAuditService = dispatchAuditService;
     }
     // Tracks which ride is on which offer attempt
     // Key: rideId → Value: the current state of the offer flow
     private final ConcurrentHashMap<Long, OfferFlowState> activeFlows = new ConcurrentHashMap<>();
-
-    /**
-     * Start the sequential offer flow for a ride.
-     * Called by DispatchOrchestrator after ranking drivers.
-     */
-    public void startOfferFlow(Ride ride, List<Driver> rankedDrivers) {
-        OfferFlowState state = new OfferFlowState(ride, rankedDrivers);
-        activeFlows.put(ride.getId(), state);
-        sendNextOffer(state);
-    }
-
-    /**
-     * Send an offer to the next driver in the list.
-     */
     public void cancelRideFlow(Long rideId){
         OfferFlowState state=activeFlows.remove(rideId);
         if(state==null)return;
@@ -76,8 +64,30 @@ public class OfferManager {
                 currentOffer.setDriver(driver);
             }
             offerRepository.save(currentOffer);
+            dispatchAuditService.recordRideCancelled(
+                    currentOffer.getRide(),
+                    currentOffer.getDriver(),
+                    state.getCurrentIndex() + 1,
+                    ReasonCode.PASSENGER_CANCELLED,
+                    "Ride was cancelled while an offer was pending"
+            );
         }
     }
+    /**
+     * Start the sequential offer flow for a ride.
+     * Called by DispatchOrchestrator after ranking drivers.
+     */
+
+    public void startOfferFlow(Ride ride, List<Driver> rankedDrivers) {
+        OfferFlowState state = new OfferFlowState(ride, rankedDrivers);
+        activeFlows.put(ride.getId(), state);
+        sendNextOffer(state);
+    }
+
+    /**
+     * Send an offer to the next driver in the list.
+     */
+
     @Transactional
     public void sendNextOffer(OfferFlowState state) {
         if (state.getCurrentIndex() >= state.getRankedDrivers().size()) {
@@ -105,6 +115,7 @@ public class OfferManager {
             movingToNextCandidate(state);
             return;
         }
+        dispatchAuditService.recordOfferSent(state.getRide(), nextDriver, state.getCurrentIndex() + 1);
         applicationEventPublisher.publishEvent(new DriverOfferCreatedEvent(nextDriver,state.getRide()));
        // broadcastService.sendOfferToDriver(nextDriver, state.getRide());
         // 3. Schedule timeout — if no response in 30s, move to next
@@ -166,6 +177,7 @@ public class OfferManager {
             // Assign driver to ride
             Ride ride = state.getRide();
             ride.setDriver(offer.getDriver());
+            ride.setDriverAssignedAt(LocalDateTime.now());
             rideStateMachine.transition(ride, RideStatus.DRIVER_ASSIGNED);
             rideRepository.save(ride);
 
@@ -175,6 +187,8 @@ public class OfferManager {
 
             // Clean up
             activeFlows.remove(rideId);
+            dispatchAuditService.recordOfferAccepted(ride, driver, state.getCurrentIndex() + 1);
+            dispatchAuditService.recordDriverAssigned(ride, driver, state.getCurrentIndex() + 1);
             applicationEventPublisher.publishEvent(new DriverAssignedEvent(ride));
             return new DriverResponded(OfferStatusState.SUCCESS,rideId,"Ride is Accepted by the driver");
 
@@ -188,6 +202,7 @@ public class OfferManager {
             driverRepository.save(offer.getDriver());
             offer.setRespondedAt(LocalDateTime.now());
             offerRepository.save(offer);
+            dispatchAuditService.recordOfferRejected(state.getRide(), offer.getDriver(), state.getCurrentIndex() + 1);
             state.incrementIndex();
             sendNextOffer(state);
             return new DriverResponded(OfferStatusState.REJECTED,rideId,"Ride is Rejected by the driver");
@@ -212,6 +227,7 @@ public class OfferManager {
         offer.setDriver(driver);
         offer.setRespondedAt(LocalDateTime.now());
         offerRepository.save(offer);
+        dispatchAuditService.recordOfferTimedOut(state.getRide(), driver, state.getCurrentIndex() + 1);
 
         state.incrementIndex();
         sendNextOffer(state);
@@ -224,14 +240,23 @@ public class OfferManager {
         offer.setStatus(OfferStatus.EXPIRED);
         offer.setRespondedAt(LocalDateTime.now());
         offerRepository.save(offer);
+        dispatchAuditService.recordDriverSkipped(
+                state.getRide(),
+                offer.getDriver(),
+                state.getCurrentIndex() + 1,
+                ReasonCode.DRIVER_ALREADY_RESERVED,
+                "Driver was no longer reservable when the offer flow attempted to contact them"
+        );
         state.incrementIndex();
         sendNextOffer(state);
     }
 
     public void handleNoDriversAvailable(Ride ride) {
+        ride.setCancelledAt(LocalDateTime.now());
         rideStateMachine.transition(ride, RideStatus.CANCELLED);
         rideRepository.save(ride);
         activeFlows.remove(ride.getId());
+        dispatchAuditService.recordDispatchFailed(ride, ReasonCode.NO_ELIGIBLE_DRIVERS, "Dispatch exhausted all eligible drivers without an assignment");
         applicationEventPublisher.publishEvent(new NoDriversAvailableEvent(ride));
         // TODO: Notify rider
     }

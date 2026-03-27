@@ -2,6 +2,7 @@ package org.dispatchsystem.ride.domain;
 
 public enum RideStatus {
     REQUESTED,
+    SCHEDULED,
     DISPATCHING,
     DRIVER_ASSIGNED,
     DRIVER_EN_ROUTE,

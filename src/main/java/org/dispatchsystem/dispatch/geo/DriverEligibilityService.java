@@ -1,5 +1,6 @@
 package org.dispatchsystem.dispatch.geo;
 
+import org.dispatchsystem.common.events.domains.ReasonCode;
 import org.dispatchsystem.dispatch.DispatchCandidate;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.domain.VehicleClass;
@@ -56,54 +57,54 @@ public class DriverEligibilityService {
         boolean isAvailableForScheduleFactor=isAvailableForSchedule(driver, ride.getScheduledStart());
         boolean isVehicleClassAvailable = supportsVehicleClass(driver.getVehicleDetails().getVehicleClass(), ride.getRequestedVehicleClass());
         boolean isLuggageCapacityAvailable = supportsLuggageCapacity(driver.getVehicleDetails().getLuggageCapacityKg(), ride.getRequiredLuggageCapacity());
-        List<String>AcceptedResponse = new ArrayList<>();
-        List<String>RejectedResponse = new ArrayList<>();
+        List<ReasonCode>AcceptedResponse = new ArrayList<>();
+        List<ReasonCode>RejectedResponse = new ArrayList<>();
         if(driver.getLongitude()==null||driver.getLatitude()==null){
-            RejectedResponse.add("Driver coordinates are not available");
+            RejectedResponse.add(ReasonCode.DRIVER_LOCATION_NOT_AVAILABLE);
             return new DispatchCandidate(driver,0,false,AcceptedResponse, RejectedResponse, 0);
         }
         double distance= geoService.haversineDistance(driver.getLatitude(), driver.getLongitude(), ride.getStartLatitude(), ride.getStartLongitude());
 
         int score=0;
         if(bookingTypeFactor){
-            AcceptedResponse.add("Booking type supported");
+            AcceptedResponse.add(ReasonCode.BOOKING_TYPE_SUPPORTED);
             score++;
         }
         if(!bookingTypeFactor){
-            RejectedResponse.add("Booking type not supported");
+            RejectedResponse.add(ReasonCode.BOOKING_TYPE_UNSUPPORTED);
         }
         if(supportsDurationFactor){
-            AcceptedResponse.add("Duration supported");
+            AcceptedResponse.add(ReasonCode.DURATION_SUPPORTED);
             score++;
         }
         if(!supportsDurationFactor){
-            RejectedResponse.add("Duration not supported");
+            RejectedResponse.add(ReasonCode.DURATION_UNSUPPORTED);
         }
         if(isAvailableForScheduleFactor){
-            AcceptedResponse.add("Schedule supported");
+            AcceptedResponse.add(ReasonCode.SCHEDULE_AVAILABLE);
             score++;
         }
         if(!isAvailableForScheduleFactor){
-            RejectedResponse.add("Schedule not supported");
+            RejectedResponse.add(ReasonCode.SCHEDULE_UNAVAILABLE);
         }
         if(distance<5){
-            AcceptedResponse.add("Pickup distance is within 5 km");
+            AcceptedResponse.add(ReasonCode.INSIDE_PICKUP_RADIUS);
             score++;
         }
         if(distance>=5){
-            RejectedResponse.add("Pickup distance is more than 5 km");
+            RejectedResponse.add(ReasonCode.OUTSIDE_PICKUP_RADIUS);
         }
         if(isVehicleClassAvailable){
-            AcceptedResponse.add("Requested vehicle class is available");
+            AcceptedResponse.add(ReasonCode.VEHICLE_CLASS_MATCHED);
         }
         if(!isVehicleClassAvailable){
-            RejectedResponse.add("Requested vehicle class is not available");
+            RejectedResponse.add(ReasonCode.VEHICLE_CLASS_MISMATCH);
         }
         if(isLuggageCapacityAvailable){
-            AcceptedResponse.add("Requested luggage capacity is available");
+            AcceptedResponse.add(ReasonCode.LUGGAGE_CAPACITY_MATCHED);
         }
         if(!isLuggageCapacityAvailable){
-            RejectedResponse.add("Requested luggage capacity is not available");
+            RejectedResponse.add(ReasonCode.LUGGAGE_CAPACITY_MISMATCH);
         }
         boolean withinRadius = distance < 5;
         boolean eligible = bookingTypeFactor && supportsDurationFactor && isAvailableForScheduleFactor && withinRadius && isLuggageCapacityAvailable && isVehicleClassAvailable;

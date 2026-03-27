@@ -1,4 +1,6 @@
 package org.dispatchsystem.dispatch.orchestrator;
+
+import org.dispatchsystem.common.events.domains.ReasonCode;
 import org.dispatchsystem.dispatch.DispatchDecision;
 import org.dispatchsystem.dispatch.DispatchDecisionService;
 import org.dispatchsystem.dispatch.offer.OfferManager;
@@ -8,8 +10,11 @@ import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideRepository;
+import org.dispatchsystem.ride.service.DispatchAuditService;
 import org.dispatchsystem.ride.service.RideStateMachine;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -19,17 +24,29 @@ public class DispatchOrchestrator {
     private final RideStateMachine rideStateMachine;
     private final DriverRepository driverRepository;
     private final DispatchDecisionService dispatchDecisionService;
-    DispatchOrchestrator(OfferManager offerManager, RideRepository rideRepository, RideStateMachine rideStateMachine, DriverRepository driverRepository, DispatchDecisionService dispatchDecisionService){
+    private final DispatchAuditService dispatchAuditService;
+    DispatchOrchestrator(OfferManager offerManager, RideRepository rideRepository, RideStateMachine rideStateMachine, DriverRepository driverRepository, DispatchDecisionService dispatchDecisionService, DispatchAuditService dispatchAuditService){
         this.offerManager = offerManager;
         this.rideRepository = rideRepository;
         this.rideStateMachine = rideStateMachine;
         this.driverRepository = driverRepository;
         this.dispatchDecisionService = dispatchDecisionService;
+        this.dispatchAuditService = dispatchAuditService;
     }
     public void dispatch(Ride ride){
+        ride.setDispatchStartedAt(LocalDateTime.now());
+        dispatchAuditService.recordDispatchStarted(ride);
         List<Driver> availableDrivers= driverRepository.findByAvailabilityStatus(AvailabilityStatus.AVAILABLE);
         DispatchDecision decision= dispatchDecisionService.takeDecision(ride, availableDrivers);
+        for (var candidate : decision.getAcceptedCandidates()) {
+            dispatchAuditService.recordDriverEvaluation(ride, candidate);
+        }
+        for (var candidate : decision.getRejectedCandidates()) {
+            dispatchAuditService.recordDriverEvaluation(ride, candidate);
+        }
         if(!decision.hasEligibleCandidates()){
+            ride.setCancelledAt(LocalDateTime.now());
+            dispatchAuditService.recordDispatchFailed(ride, ReasonCode.NO_ELIGIBLE_DRIVERS, "Dispatch failed because no eligible drivers were available");
             rideStateMachine.transition(ride, RideStatus.CANCELLED);
             rideRepository.save(ride);
             // TODO: notify rider "no drivers available"

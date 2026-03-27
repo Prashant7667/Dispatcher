@@ -26,9 +26,6 @@ public class RideUpdateDTO {
     @Positive(message = "Estimated duration must be positive")
     private Integer estimatedDurationMinutes;
     private RentalPlan rentalPlan;
-    @NotNull(message = "Fare is required")
-    @Positive(message = "Fare must be positive")
-    private Double fare;
     @NotNull(message = "requestedVehicleClass is required")
     private VehicleClass requestedVehicleClass;
     @NotNull(message = "requiredLuggageCapacity is required")

@@ -1,11 +1,11 @@
 package org.dispatchsystem.dispatch.geo;
 
+import org.dispatchsystem.common.events.domains.ReasonCode;
 import org.dispatchsystem.dispatch.DispatchCandidate;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.domain.DriverBookingType;
 import org.dispatchsystem.driver.domain.VehicleClass;
 import org.dispatchsystem.driver.domain.VehicleDetails;
-import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.ride.domain.BookingType;
 import org.dispatchsystem.ride.domain.Ride;
 import org.junit.jupiter.api.Test;
@@ -14,12 +14,10 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-
 class DriverEligibilityServiceTest {
 
     private final DriverEligibilityService driverEligibilityService =
-            new DriverEligibilityService(new GeoService(mock(DriverRepository.class)));
+            new DriverEligibilityService(new GeoService());
 
     @Test
     void evaluateRejectsDriverWithoutCoordinates() {
@@ -30,7 +28,7 @@ class DriverEligibilityServiceTest {
         DispatchCandidate candidate = driverEligibilityService.evaluate(ride, driver);
 
         assertFalse(candidate.isEligible());
-        assertTrue(candidate.getRejectedReasons().contains("Driver coordinates are not available"));
+        assertTrue(candidate.getRejectedReasons().contains(ReasonCode.DRIVER_LOCATION_NOT_AVAILABLE));
     }
 
     @Test
@@ -41,7 +39,7 @@ class DriverEligibilityServiceTest {
         DispatchCandidate candidate = driverEligibilityService.evaluate(ride, driver);
 
         assertFalse(candidate.isEligible());
-        assertTrue(candidate.getRejectedReasons().contains("Requested vehicle class is not available"));
+        assertTrue(candidate.getRejectedReasons().contains(ReasonCode.VEHICLE_CLASS_MISMATCH));
     }
 
     @Test
@@ -52,7 +50,7 @@ class DriverEligibilityServiceTest {
         DispatchCandidate candidate = driverEligibilityService.evaluate(ride, driver);
 
         assertFalse(candidate.isEligible());
-        assertTrue(candidate.getRejectedReasons().contains("Requested luggage capacity is not available"));
+        assertTrue(candidate.getRejectedReasons().contains(ReasonCode.LUGGAGE_CAPACITY_MISMATCH));
     }
 
     @Test
@@ -63,8 +61,8 @@ class DriverEligibilityServiceTest {
         DispatchCandidate candidate = driverEligibilityService.evaluate(ride, driver);
 
         assertTrue(candidate.isEligible());
-        assertTrue(candidate.getAcceptedReasons().contains("Requested vehicle class is available"));
-        assertTrue(candidate.getAcceptedReasons().contains("Requested luggage capacity is available"));
+        assertTrue(candidate.getAcceptedReasons().contains(ReasonCode.VEHICLE_CLASS_MATCHED));
+        assertTrue(candidate.getAcceptedReasons().contains(ReasonCode.LUGGAGE_CAPACITY_MATCHED));
     }
 
     private Ride createRide(VehicleClass requestedVehicleClass, int requiredLuggageCapacity) {

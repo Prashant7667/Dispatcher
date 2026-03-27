@@ -42,7 +42,6 @@ class RideControllerValidationTest {
                   "endLongitude": 77.6200,
                   "endLatitude": 12.9900,
                   "bookingType": "TRIP",
-                  "fare": 250.0,
                   "requiredLuggageCapacity": 15
                 }
                 """;
@@ -63,7 +62,6 @@ class RideControllerValidationTest {
                   "endLongitude": 77.6200,
                   "endLatitude": 12.9900,
                   "bookingType": "TRIP",
-                  "fare": 250.0,
                   "requestedVehicleClass": "SEDAN",
                   "requiredLuggageCapacity": -1
                 }
@@ -85,7 +83,6 @@ class RideControllerValidationTest {
                   "endLongitude": 77.6200,
                   "endLatitude": 12.9900,
                   "bookingType": "TRIP",
-                  "fare": 250.0,
                   "requiredLuggageCapacity": 10
                 }
                 """;
