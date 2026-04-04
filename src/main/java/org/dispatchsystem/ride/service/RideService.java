@@ -6,6 +6,7 @@ import org.dispatchsystem.dispatch.offer.OfferManager;
 import org.dispatchsystem.dispatch.orchestrator.DispatchOrchestrator;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
+import org.dispatchsystem.driver.domain.VehicleClass;
 import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.ride.domain.BookingType;
 import org.dispatchsystem.ride.domain.RentalPlan;
@@ -45,7 +46,7 @@ public class RideService {
             LocalDateTime scheduledStart,
             Integer estimatedDurationMinutes,
             RentalPlan rentalPlan,
-            Double fare) {
+            Double fare, VehicleClass requestedVehicleClass, int requiredLuggageCapacity) {
         var passenger=userService.getCurrentPassengerDetails();
         Ride ride = new Ride();
         ride.setUser(passenger);
@@ -60,6 +61,8 @@ public class RideService {
         ride.setRentalPlan(rentalPlan == null ? RentalPlan.NONE : rentalPlan);
         ride.setFare(fare);
         ride.setStatus(RideStatus.REQUESTED);
+        ride.setRequestedVehicleClass(requestedVehicleClass);
+        ride.setRequiredLuggageCapacity(requiredLuggageCapacity);
         Ride savedRide = rideRepository.save(ride);
         dispatchOrchestrator.dispatch(savedRide);
         return savedRide;
@@ -145,6 +148,8 @@ public class RideService {
         existingRide.setEstimatedDurationMinutes(updatedData.getEstimatedDurationMinutes());
         existingRide.setRentalPlan(updatedData.getRentalPlan());
         existingRide.setFare(updatedData.getFare());
+        existingRide.setRequestedVehicleClass(updatedData.getRequestedVehicleClass());
+        existingRide.setRequiredLuggageCapacity(updatedData.getRequiredLuggageCapacity());
         return rideRepository.save(existingRide);
     }
     public void deleteRide(Long id) {

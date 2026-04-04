@@ -44,7 +44,7 @@ public class DriverController {
         return ResponseEntity.ok(savedDrivers.stream().map(this::toResponseDto).collect(Collectors.toList()));
     }
     @PutMapping("/me")
-    public ResponseEntity<DriverResponseDTO> updateDriver(@RequestBody DriverUpdateDTO driver) {
+    public ResponseEntity<DriverResponseDTO> updateDriver(@Valid @RequestBody DriverUpdateDTO driver) {
         Driver driverEntity = new Driver();
         driverEntity.setName(driver.getName());
         driverEntity.setPassword(driver.getPassword());
