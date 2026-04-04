@@ -10,6 +10,7 @@ import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideRepository;
+import org.dispatchsystem.ride.service.DispatchAuditService;
 import org.dispatchsystem.ride.service.RideStateMachine;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -34,13 +35,15 @@ class DispatchOrchestratorTest {
         RideStateMachine rideStateMachine = new RideStateMachine(eventPublisher);
         DriverRepository driverRepository = mock(DriverRepository.class);
         DispatchDecisionService dispatchDecisionService = mock(DispatchDecisionService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
 
         DispatchOrchestrator orchestrator = new DispatchOrchestrator(
                 offerManager,
                 rideRepository,
                 rideStateMachine,
                 driverRepository,
-                dispatchDecisionService
+                dispatchDecisionService,
+                dispatchAuditService
         );
 
         Ride ride = new Ride();
@@ -85,13 +88,15 @@ class DispatchOrchestratorTest {
         RideStateMachine rideStateMachine = new RideStateMachine(eventPublisher);
         DriverRepository driverRepository = mock(DriverRepository.class);
         DispatchDecisionService dispatchDecisionService = mock(DispatchDecisionService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
 
         DispatchOrchestrator orchestrator = new DispatchOrchestrator(
                 offerManager,
                 rideRepository,
                 rideStateMachine,
                 driverRepository,
-                dispatchDecisionService
+                dispatchDecisionService,
+                dispatchAuditService
         );
 
         Ride ride = new Ride();

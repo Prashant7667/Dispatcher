@@ -1,21 +1,8 @@
 package org.dispatchsystem.dispatch.geo;
-
-import org.dispatchsystem.driver.domain.AvailabilityStatus;
-import org.dispatchsystem.driver.domain.Driver;
-import org.dispatchsystem.driver.repository.DriverRepository;
-import org.dispatchsystem.ride.domain.BookingType;
-import org.dispatchsystem.ride.domain.Ride;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 @Service
 public class GeoService {
-    private final DriverRepository driverRepository;
-    GeoService(DriverRepository driverRepository){
-        this.driverRepository=driverRepository;
-    }
     public double haversineDistance(double lat1, double lon1, double lat2, double lon2) {
         final double R = 6371;
         double dLat = Math.toRadians(lat2 - lat1);
