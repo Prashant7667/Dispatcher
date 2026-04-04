@@ -1,10 +1,10 @@
 package org.dispatchsystem.user.controller;
 
 import jakarta.validation.Valid;
-import org.dispatchsystem.common.config.JwtUtils;
-import org.dispatchsystem.common.config.UserDetailsImpl;
-import org.dispatchsystem.user.domain.LoginRequest;
+import org.dispatchsystem.common.config.security.JwtUtils;
+import org.dispatchsystem.common.config.security.UserDetailsImpl;
 import org.dispatchsystem.user.domain.User;
+import org.dispatchsystem.user.dto.LoginRequest;
 import org.dispatchsystem.user.dto.UserRequestDTO;
 import org.dispatchsystem.user.dto.UserResponseDTO;
 import org.dispatchsystem.user.dto.UserUpdateDTO;

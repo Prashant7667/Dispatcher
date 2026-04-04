@@ -31,7 +31,8 @@ public class RideController {
                 req.getScheduledStart(),
                 req.getEstimatedDurationMinutes(),
                 req.getRentalPlan(),
-                req.getFare()
+                req.getRequestedVehicleClass(),
+                req.getRequiredLuggageCapacity()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDto(requestedRide));
     }
@@ -58,7 +59,8 @@ public class RideController {
         updatedEntity.setScheduledStart(ride.getScheduledStart());
         updatedEntity.setEstimatedDurationMinutes(ride.getEstimatedDurationMinutes());
         updatedEntity.setRentalPlan(ride.getRentalPlan());
-        updatedEntity.setFare(ride.getFare());
+        updatedEntity.setRequestedVehicleClass(ride.getRequestedVehicleClass());
+        updatedEntity.setRequiredLuggageCapacity(ride.getRequiredLuggageCapacity());
         Ride savedRide = rideService.updateRide(id, updatedEntity);
         return ResponseEntity.ok(toResponseDto(savedRide));
     }
@@ -112,6 +114,8 @@ public class RideController {
         responseDTO.setRentalPlan(ride.getRentalPlan());
         responseDTO.setStatus(ride.getStatus());
         responseDTO.setFare(ride.getFare());
+        responseDTO.setRequestedVehicleClass(ride.getRequestedVehicleClass());
+        responseDTO.setRequiredLuggageCapacity(ride.getRequiredLuggageCapacity());
         if (ride.getDriver() != null) {
             responseDTO.setDriverId(ride.getDriver().getId());
             responseDTO.setDriverName(ride.getDriver().getName());

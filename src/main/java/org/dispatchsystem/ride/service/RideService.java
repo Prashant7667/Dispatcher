@@ -6,6 +6,7 @@ import org.dispatchsystem.dispatch.offer.OfferManager;
 import org.dispatchsystem.dispatch.orchestrator.DispatchOrchestrator;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
+import org.dispatchsystem.driver.domain.VehicleClass;
 import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.ride.domain.BookingType;
 import org.dispatchsystem.ride.domain.RentalPlan;
@@ -29,8 +30,10 @@ public class RideService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RideStateMachine rideStateMachine;
     private final OfferManager offerManager;
+    private final FareEstimationService fareEstimationService;
+    private final DispatchAuditService dispatchAuditService;
 
-    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserService userService, DispatchOrchestrator dispatchOrchestrator, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine,OfferManager offerManager){
+    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserService userService, DispatchOrchestrator dispatchOrchestrator, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine,OfferManager offerManager, FareEstimationService fareEstimationService, DispatchAuditService dispatchAuditService){
         this.rideRepository=rideRepository;
         this.driverRepository=driverRepository;
         this.userService=userService;
@@ -38,15 +41,18 @@ public class RideService {
         this.applicationEventPublisher=applicationEventPublisher;
         this.rideStateMachine=rideStateMachine;
         this.offerManager=offerManager;
+        this.fareEstimationService = fareEstimationService;
+        this.dispatchAuditService = dispatchAuditService;
     }
 
     public Ride requestRide(double startLongitude, double startLatitude, double endLongitude, double endLatitude,
             BookingType bookingType,
             LocalDateTime scheduledStart,
             Integer estimatedDurationMinutes,
-            RentalPlan rentalPlan,
-            Double fare) {
+            RentalPlan rentalPlan, VehicleClass requestedVehicleClass, int requiredLuggageCapacity) {
         var passenger=userService.getCurrentPassengerDetails();
+        RentalPlan normalizedRentalPlan = rentalPlan == null ? RentalPlan.NONE : rentalPlan;
+        double fare= fareEstimationService.fareEstimation(startLatitude, startLongitude, endLatitude, endLongitude, bookingType,estimatedDurationMinutes, normalizedRentalPlan);
         Ride ride = new Ride();
         ride.setUser(passenger);
         ride.setDriver(null);
@@ -57,10 +63,17 @@ public class RideService {
         ride.setBookingType(bookingType);
         ride.setScheduledStart(scheduledStart);
         ride.setEstimatedDurationMinutes(estimatedDurationMinutes);
-        ride.setRentalPlan(rentalPlan == null ? RentalPlan.NONE : rentalPlan);
+        ride.setRentalPlan(normalizedRentalPlan);
         ride.setFare(fare);
-        ride.setStatus(RideStatus.REQUESTED);
+        ride.setCreatedAt(LocalDateTime.now());
+        if(scheduledStart!=null && scheduledStart.isAfter(LocalDateTime.now())){
+            ride.setStatus(RideStatus.SCHEDULED);
+        }
+        else ride.setStatus(RideStatus.REQUESTED);
+        ride.setRequestedVehicleClass(requestedVehicleClass);
+        ride.setRequiredLuggageCapacity(requiredLuggageCapacity);
         Ride savedRide = rideRepository.save(ride);
+        if(ride.getStatus()!=RideStatus.SCHEDULED)
         dispatchOrchestrator.dispatch(savedRide);
         return savedRide;
     }
@@ -82,6 +95,7 @@ public class RideService {
         if(ride.getStatus()== RideStatus.COMPLETED){
             throw new BusinessRuleViolationException("Ride Is Already Completed");
         }
+        ride.setCancelledAt(LocalDateTime.now());
 
         rideStateMachine.transition(ride,RideStatus.CANCELLED);
 
@@ -91,6 +105,7 @@ public class RideService {
             driver.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
             driverRepository.save(driver);
         }
+        dispatchAuditService.recordRideCancelled(ride, driver, null, org.dispatchsystem.common.events.domains.ReasonCode.PASSENGER_CANCELLED, "Ride cancelled by passenger");
         applicationEventPublisher.publishEvent(new RideCancelledEvent(ride));
         return rideRepository.save(ride);
     }
@@ -103,6 +118,7 @@ public class RideService {
 
     public Ride markDriverArrived(Long rideId) {
         Ride ride = getRideForCurrentDriver(rideId);
+
         rideStateMachine.transition(ride, RideStatus.DRIVER_ARRIVED);
         return rideRepository.save(ride);
     }
@@ -115,6 +131,7 @@ public class RideService {
 
     public Ride completeRide(Long rideId) {
         Ride ride = getRideForCurrentDriver(rideId);
+        ride.setCompletedAt(LocalDateTime.now());
         rideStateMachine.transition(ride, RideStatus.COMPLETED);
 
         Driver driver = ride.getDriver();
@@ -136,6 +153,12 @@ public class RideService {
     }
     public Ride updateRide(Long id, Ride updatedData) {
         Ride existingRide = getRideById(id);
+        if(!(existingRide.getStatus()==RideStatus.REQUESTED|| existingRide.getStatus()==RideStatus.SCHEDULED)){
+            throw new BusinessRuleViolationException("We can't update the ride in this case");
+        }
+        if(existingRide.getStatus()==RideStatus.SCHEDULED){
+            existingRide.setScheduledStart(updatedData.getScheduledStart());
+        }
         existingRide.setStartLongitude(updatedData.getStartLongitude());
         existingRide.setStartLatitude(updatedData.getStartLatitude());
         existingRide.setEndLatitude(updatedData.getEndLatitude());
@@ -143,8 +166,12 @@ public class RideService {
         existingRide.setBookingType(updatedData.getBookingType());
         existingRide.setScheduledStart(updatedData.getScheduledStart());
         existingRide.setEstimatedDurationMinutes(updatedData.getEstimatedDurationMinutes());
-        existingRide.setRentalPlan(updatedData.getRentalPlan());
-        existingRide.setFare(updatedData.getFare());
+        RentalPlan normalizedRentalPlan = updatedData.getRentalPlan() == null ? RentalPlan.NONE : updatedData.getRentalPlan();
+        existingRide.setRentalPlan(normalizedRentalPlan);
+        existingRide.setRequestedVehicleClass(updatedData.getRequestedVehicleClass());
+        existingRide.setRequiredLuggageCapacity(updatedData.getRequiredLuggageCapacity());
+        double fare= fareEstimationService.fareEstimation(updatedData.getStartLatitude(), updatedData.getStartLongitude(), updatedData.getEndLatitude(), updatedData.getEndLongitude(),updatedData.getBookingType(),updatedData.getEstimatedDurationMinutes(), normalizedRentalPlan);
+        existingRide.setFare(fare);
         return rideRepository.save(existingRide);
     }
     public void deleteRide(Long id) {

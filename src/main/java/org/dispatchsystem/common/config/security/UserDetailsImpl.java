@@ -1,4 +1,4 @@
-package org.dispatchsystem.common.config;
+package org.dispatchsystem.common.config.security;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -15,7 +15,7 @@ public class UserDetailsImpl implements UserDetails {
     public UserDetailsImpl(String email, String password, String role) {
         this.email = email;
         this.password = password;
-        this.role=role;
+        this.role = role;
     }
 
     @Override
@@ -28,20 +28,32 @@ public class UserDetailsImpl implements UserDetails {
         return password;
     }
 
-    public String getRole(){return role;}
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_"+role));
+    public String getRole() {
+        return role;
     }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role));
+    }
+
     @Override
-    public boolean isAccountNonLocked() { return true; }
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
     @Override
-    public boolean isCredentialsNonExpired() { return true; }
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
     @Override
-    public boolean isEnabled() { return true; }
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
 }

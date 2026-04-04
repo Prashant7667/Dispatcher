@@ -16,6 +16,7 @@ public class RideStateMachine {
     // Define valid transitions
     private static final Map<RideStatus, Set<RideStatus>> VALID_TRANSITIONS = Map.of(
             RideStatus.REQUESTED,       Set.of(RideStatus.DISPATCHING, RideStatus.CANCELLED),
+            RideStatus.SCHEDULED,       Set.of(RideStatus.CANCELLED, RideStatus.DISPATCHING),
             RideStatus.DISPATCHING,     Set.of(RideStatus.DRIVER_ASSIGNED, RideStatus.CANCELLED),
             RideStatus.DRIVER_ASSIGNED, Set.of(RideStatus.DRIVER_EN_ROUTE, RideStatus.CANCELLED),
             RideStatus.DRIVER_EN_ROUTE, Set.of(RideStatus.DRIVER_ARRIVED, RideStatus.CANCELLED),

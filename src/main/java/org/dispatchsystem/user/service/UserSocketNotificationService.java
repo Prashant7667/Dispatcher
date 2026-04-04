@@ -1,8 +1,8 @@
 package org.dispatchsystem.user.service;
 
 import org.dispatchsystem.ride.domain.Ride;
-import org.dispatchsystem.user.domain.UserNotificationType;
-import org.dispatchsystem.user.domain.UserRideNotification;
+import org.dispatchsystem.user.dto.notification.UserNotificationType;
+import org.dispatchsystem.user.dto.notification.UserRideNotification;
 import org.springframework.stereotype.Service;
 
 @Service

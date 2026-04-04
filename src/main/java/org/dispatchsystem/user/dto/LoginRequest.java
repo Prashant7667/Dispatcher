@@ -1,4 +1,4 @@
-package org.dispatchsystem.user.domain;
+package org.dispatchsystem.user.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

@@ -2,6 +2,7 @@ package org.dispatchsystem.ride.domain;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.dispatchsystem.driver.domain.Driver;
+import org.dispatchsystem.driver.domain.VehicleClass;
 import org.dispatchsystem.user.domain.User;
 
 import lombok.AllArgsConstructor;
@@ -25,13 +26,22 @@ public class Ride {
     private double endLongitude;
     private double endLatitude;
     @Enumerated(EnumType.STRING)
+    private VehicleClass requestedVehicleClass;
+    private int requiredLuggageCapacity;
+    @Enumerated(EnumType.STRING)
     private RideStatus status = RideStatus.REQUESTED;
     @Enumerated(EnumType.STRING)
     private BookingType bookingType = BookingType.TRIP;
-    private LocalDateTime scheduledStart;
     private Integer estimatedDurationMinutes;
     @Enumerated(EnumType.STRING)
     private RentalPlan rentalPlan = RentalPlan.NONE;
+    private LocalDateTime createdAt;
+    private LocalDateTime scheduledStart;
+    private LocalDateTime dispatchStartedAt;
+    private LocalDateTime driverAssignedAt;
+    private LocalDateTime cancelledAt;
+    private LocalDateTime completedAt;
+
 
     private Double fare;
     @ManyToOne

@@ -1,8 +1,11 @@
 package org.dispatchsystem.driver.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.dispatchsystem.driver.domain.DriverBookingType;
+import org.dispatchsystem.driver.domain.VehicleDetails;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -17,8 +20,12 @@ public class DriverRequestDTO {
     private String password;
     @NotBlank(message = "phoneNumber is required")
     private String phoneNumber;
-    private String vehicleDetails;
+    @NotNull(message = "vehicleDetails is required")
+    @Valid
+    private VehicleDetails vehicleDetails;
+    @NotNull(message = "latitude is required")
     private Double latitude;
+    @NotNull(message = "longitude is required")
     private Double longitude;
     private Set<DriverBookingType> supportedBookingTypes;
     private LocalDateTime availableFrom;

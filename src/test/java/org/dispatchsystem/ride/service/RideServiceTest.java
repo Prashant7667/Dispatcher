@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +55,8 @@ class RideServiceTest {
         DispatchOrchestrator dispatchOrchestrator = mock(DispatchOrchestrator.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         OfferManager offerManager = mock(OfferManager.class);
+        FareEstimationService fareEstimationService = mock(FareEstimationService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
 
         RideStateMachine rideStateMachine = new RideStateMachine(eventPublisher);
         RideService rideService = new RideService(
@@ -63,7 +66,9 @@ class RideServiceTest {
                 dispatchOrchestrator,
                 eventPublisher,
                 rideStateMachine,
-                offerManager
+                offerManager,
+                fareEstimationService,
+                dispatchAuditService
         );
 
         Driver driver = new Driver();
@@ -120,6 +125,8 @@ class RideServiceTest {
         DispatchOrchestrator dispatchOrchestrator = mock(DispatchOrchestrator.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         OfferManager offerManager = mock(OfferManager.class);
+        FareEstimationService fareEstimationService = mock(FareEstimationService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
 
         RideService rideService = new RideService(
                 rideRepository,
@@ -128,7 +135,9 @@ class RideServiceTest {
                 dispatchOrchestrator,
                 eventPublisher,
                 new RideStateMachine(eventPublisher),
-                offerManager
+                offerManager,
+                fareEstimationService,
+                dispatchAuditService
 
         );
 
@@ -165,6 +174,8 @@ class RideServiceTest {
         DispatchOrchestrator dispatchOrchestrator = mock(DispatchOrchestrator.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         OfferManager offerManager = mock(OfferManager.class);
+        FareEstimationService fareEstimationService = mock(FareEstimationService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
 
         RideService rideService = new RideService(
                 rideRepository,
@@ -173,7 +184,9 @@ class RideServiceTest {
                 dispatchOrchestrator,
                 eventPublisher,
                 new RideStateMachine(eventPublisher),
-                offerManager
+                offerManager,
+                fareEstimationService,
+                dispatchAuditService
         );
 
         org.dispatchsystem.user.domain.User passenger = new org.dispatchsystem.user.domain.User();
@@ -208,6 +221,8 @@ class RideServiceTest {
         DispatchOrchestrator dispatchOrchestrator = mock(DispatchOrchestrator.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         OfferManager offerManager = mock(OfferManager.class);
+        FareEstimationService fareEstimationService = mock(FareEstimationService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
 
         RideService rideService = new RideService(
                 rideRepository,
@@ -216,7 +231,9 @@ class RideServiceTest {
                 dispatchOrchestrator,
                 eventPublisher,
                 new RideStateMachine(eventPublisher),
-                offerManager
+                offerManager,
+                fareEstimationService,
+                dispatchAuditService
         );
 
         org.dispatchsystem.user.domain.User passenger = new org.dispatchsystem.user.domain.User();
@@ -250,5 +267,154 @@ class RideServiceTest {
         verify(offerManager).cancelRideFlow(ride.getId());
         verify(driverRepository).save(driver);
         verify(rideRepository).save(ride);
+    }
+
+    @Test
+    void requestRideDispatchesImmediatelyForNonScheduledRide() {
+        RideRepository rideRepository = mock(RideRepository.class);
+        DriverRepository driverRepository = mock(DriverRepository.class);
+        UserService userService = mock(UserService.class);
+        DispatchOrchestrator dispatchOrchestrator = mock(DispatchOrchestrator.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        OfferManager offerManager = mock(OfferManager.class);
+        FareEstimationService fareEstimationService = mock(FareEstimationService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
+
+        RideService rideService = new RideService(
+                rideRepository,
+                driverRepository,
+                userService,
+                dispatchOrchestrator,
+                eventPublisher,
+                new RideStateMachine(eventPublisher),
+                offerManager,
+                fareEstimationService,
+                dispatchAuditService
+        );
+
+        org.dispatchsystem.user.domain.User passenger = new org.dispatchsystem.user.domain.User();
+        passenger.setEmail("rider@dispatchx.dev");
+
+        when(userService.getCurrentPassengerDetails()).thenReturn(passenger);
+        when(fareEstimationService.fareEstimation(12.9716, 77.5946, 12.99, 77.62, BookingType.TRIP, 25, RentalPlan.NONE))
+                .thenReturn(220.0);
+        when(rideRepository.save(any(Ride.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Ride ride = rideService.requestRide(
+                77.5946,
+                12.9716,
+                77.62,
+                12.99,
+                BookingType.TRIP,
+                null,
+                25,
+                null,
+                org.dispatchsystem.driver.domain.VehicleClass.SEDAN,
+                10
+        );
+
+        assertEquals(RideStatus.REQUESTED, ride.getStatus());
+        assertEquals(220.0, ride.getFare());
+        assertEquals(RentalPlan.NONE, ride.getRentalPlan());
+        verify(dispatchOrchestrator).dispatch(ride);
+    }
+
+    @Test
+    void requestRideStoresScheduledRideWithoutImmediateDispatch() {
+        RideRepository rideRepository = mock(RideRepository.class);
+        DriverRepository driverRepository = mock(DriverRepository.class);
+        UserService userService = mock(UserService.class);
+        DispatchOrchestrator dispatchOrchestrator = mock(DispatchOrchestrator.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        OfferManager offerManager = mock(OfferManager.class);
+        FareEstimationService fareEstimationService = mock(FareEstimationService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
+
+        RideService rideService = new RideService(
+                rideRepository,
+                driverRepository,
+                userService,
+                dispatchOrchestrator,
+                eventPublisher,
+                new RideStateMachine(eventPublisher),
+                offerManager,
+                fareEstimationService,
+                dispatchAuditService
+        );
+
+        org.dispatchsystem.user.domain.User passenger = new org.dispatchsystem.user.domain.User();
+        passenger.setEmail("future-rider@dispatchx.dev");
+
+        when(userService.getCurrentPassengerDetails()).thenReturn(passenger);
+        when(fareEstimationService.fareEstimation(12.9716, 77.5946, 12.99, 77.62, BookingType.HOURLY, 90, RentalPlan.WEEKEND))
+                .thenReturn(480.0);
+        when(rideRepository.save(any(Ride.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Ride ride = rideService.requestRide(
+                77.5946,
+                12.9716,
+                77.62,
+                12.99,
+                BookingType.HOURLY,
+                java.time.LocalDateTime.now().plusHours(2),
+                90,
+                RentalPlan.WEEKEND,
+                org.dispatchsystem.driver.domain.VehicleClass.SUV,
+                25
+        );
+
+        assertEquals(RideStatus.SCHEDULED, ride.getStatus());
+        assertEquals(480.0, ride.getFare());
+        verify(dispatchOrchestrator, never()).dispatch(any(Ride.class));
+    }
+
+    @Test
+    void updateRideRecomputesFareFromServerSideInputs() {
+        RideRepository rideRepository = mock(RideRepository.class);
+        DriverRepository driverRepository = mock(DriverRepository.class);
+        UserService userService = mock(UserService.class);
+        DispatchOrchestrator dispatchOrchestrator = mock(DispatchOrchestrator.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        OfferManager offerManager = mock(OfferManager.class);
+        FareEstimationService fareEstimationService = mock(FareEstimationService.class);
+        DispatchAuditService dispatchAuditService = mock(DispatchAuditService.class);
+
+        RideService rideService = new RideService(
+                rideRepository,
+                driverRepository,
+                userService,
+                dispatchOrchestrator,
+                eventPublisher,
+                new RideStateMachine(eventPublisher),
+                offerManager,
+                fareEstimationService,
+                dispatchAuditService
+        );
+
+        Ride existingRide = new Ride();
+        existingRide.setId(300L);
+        existingRide.setStatus(RideStatus.REQUESTED);
+
+        Ride updatedRide = new Ride();
+        updatedRide.setStartLongitude(77.5946);
+        updatedRide.setStartLatitude(12.9716);
+        updatedRide.setEndLongitude(77.62);
+        updatedRide.setEndLatitude(12.99);
+        updatedRide.setBookingType(BookingType.DAILY);
+        updatedRide.setEstimatedDurationMinutes(180);
+        updatedRide.setRentalPlan(RentalPlan.WEEKLY);
+        updatedRide.setRequestedVehicleClass(org.dispatchsystem.driver.domain.VehicleClass.SUV);
+        updatedRide.setRequiredLuggageCapacity(35);
+
+        when(rideRepository.findById(300L)).thenReturn(Optional.of(existingRide));
+        when(fareEstimationService.fareEstimation(12.9716, 77.5946, 12.99, 77.62, BookingType.DAILY, 180, RentalPlan.WEEKLY))
+                .thenReturn(650.0);
+        when(rideRepository.save(any(Ride.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Ride savedRide = rideService.updateRide(300L, updatedRide);
+
+        assertEquals(650.0, savedRide.getFare());
+        assertEquals(RentalPlan.WEEKLY, savedRide.getRentalPlan());
+        verify(fareEstimationService).fareEstimation(12.9716, 77.5946, 12.99, 77.62, BookingType.DAILY, 180, RentalPlan.WEEKLY);
     }
 }
