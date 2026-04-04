@@ -24,8 +24,20 @@ public class DispatchRideExplanationDTO {
         private Long driverId;
         private String driverName;
         private Integer dispatchAttempt;
+        private Integer dispatchRank;
+        private Double pickupDistanceKm;
+        private Double candidateScore;
+        private ScoreBreakdownDTO scoreBreakdown;
         private String explanation;
         private List<ReasonCode> positiveReasons;
         private List<ReasonCode> negativeReasons;
+    }
+
+    @Data
+    @Builder
+    public static class ScoreBreakdownDTO {
+        private Double constraintsScore;
+        private Double distanceScore;
+        private Double ratingScore;
     }
 }

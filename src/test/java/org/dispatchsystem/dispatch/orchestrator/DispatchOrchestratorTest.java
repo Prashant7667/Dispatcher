@@ -1,9 +1,9 @@
 package org.dispatchsystem.dispatch.orchestrator;
 
-import org.dispatchsystem.dispatch.DispatchCandidate;
-import org.dispatchsystem.dispatch.DispatchDecision;
-import org.dispatchsystem.dispatch.DispatchDecisionService;
+import org.dispatchsystem.dispatch.model.DispatchCandidate;
+import org.dispatchsystem.dispatch.model.DispatchDecision;
 import org.dispatchsystem.dispatch.offer.OfferManager;
+import org.dispatchsystem.dispatch.service.DispatchDecisionService;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 class DispatchOrchestratorTest {
 
     @Test
-    void dispatchStartsOfferFlowWithDriversRankedByPickupDistance() {
+    void dispatchStartsOfferFlowWithDriversRankedByDispatchScoreThenDistance() {
         OfferManager offerManager = mock(OfferManager.class);
         RideRepository rideRepository = mock(RideRepository.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
@@ -51,22 +51,28 @@ class DispatchOrchestratorTest {
         ride.setStatus(RideStatus.REQUESTED);
 
         Driver fartherDriver = new Driver();
+        fartherDriver.setId(11L);
         fartherDriver.setEmail("far@dispatch.dev");
         Driver closerDriver = new Driver();
+        closerDriver.setId(12L);
         closerDriver.setEmail("near@dispatch.dev");
+        Driver bestScoreDriver = new Driver();
+        bestScoreDriver.setId(13L);
+        bestScoreDriver.setEmail("best@dispatch.dev");
 
         DispatchDecision decision = new DispatchDecision(
                 ride,
                 List.of(
-                        new DispatchCandidate(fartherDriver, 4.5, true, List.of(), List.of(), 0),
-                        new DispatchCandidate(closerDriver, 1.2, true, List.of(), List.of(), 0)
+                        new DispatchCandidate(fartherDriver, 1.6, true, List.of(), List.of(), 8.0, new DispatchCandidate.ScoreBreakdown(4.0, 2.4, 1.6)),
+                        new DispatchCandidate(closerDriver, 1.2, true, List.of(), List.of(), 8.0, new DispatchCandidate.ScoreBreakdown(4.0, 2.8, 1.2)),
+                        new DispatchCandidate(bestScoreDriver, 2.1, true, List.of(), List.of(), 9.5, new DispatchCandidate.ScoreBreakdown(4.5, 2.9, 2.1))
                 ),
                 List.of()
         );
 
         when(driverRepository.findByAvailabilityStatus(AvailabilityStatus.AVAILABLE))
-                .thenReturn(List.of(fartherDriver, closerDriver));
-        when(dispatchDecisionService.takeDecision(ride, List.of(fartherDriver, closerDriver)))
+                .thenReturn(List.of(fartherDriver, closerDriver, bestScoreDriver));
+        when(dispatchDecisionService.takeDecision(ride, List.of(fartherDriver, closerDriver, bestScoreDriver)))
                 .thenReturn(decision);
         when(rideRepository.save(any(Ride.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -76,7 +82,7 @@ class DispatchOrchestratorTest {
         ArgumentCaptor<List<Driver>> rankedDriversCaptor =
                 (ArgumentCaptor<List<Driver>>) (ArgumentCaptor<?>) ArgumentCaptor.forClass(List.class);
         verify(offerManager).startOfferFlow(any(Ride.class), rankedDriversCaptor.capture());
-        assertEquals(List.of(closerDriver, fartherDriver), rankedDriversCaptor.getValue());
+        assertEquals(List.of(bestScoreDriver, closerDriver, fartherDriver), rankedDriversCaptor.getValue());
         assertEquals(RideStatus.DISPATCHING, ride.getStatus());
     }
 

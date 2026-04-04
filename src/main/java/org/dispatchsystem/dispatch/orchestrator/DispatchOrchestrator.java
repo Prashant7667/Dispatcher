@@ -1,9 +1,9 @@
 package org.dispatchsystem.dispatch.orchestrator;
 
 import org.dispatchsystem.common.events.domains.ReasonCode;
-import org.dispatchsystem.dispatch.DispatchDecision;
-import org.dispatchsystem.dispatch.DispatchDecisionService;
+import org.dispatchsystem.dispatch.model.DispatchDecision;
 import org.dispatchsystem.dispatch.offer.OfferManager;
+import org.dispatchsystem.dispatch.service.DispatchDecisionService;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
@@ -15,7 +15,9 @@ import org.dispatchsystem.ride.service.RideStateMachine;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class DispatchOrchestrator {
@@ -38,11 +40,16 @@ public class DispatchOrchestrator {
         dispatchAuditService.recordDispatchStarted(ride);
         List<Driver> availableDrivers= driverRepository.findByAvailabilityStatus(AvailabilityStatus.AVAILABLE);
         DispatchDecision decision= dispatchDecisionService.takeDecision(ride, availableDrivers);
+        Map<Long, Integer> acceptedRanks = new HashMap<>();
+        List<Driver> rankedDrivers = decision.rankedDrivers();
+        for (int i = 0; i < rankedDrivers.size(); i++) {
+            acceptedRanks.put(rankedDrivers.get(i).getId(), i + 1);
+        }
         for (var candidate : decision.getAcceptedCandidates()) {
-            dispatchAuditService.recordDriverEvaluation(ride, candidate);
+            dispatchAuditService.recordDriverEvaluation(ride, candidate, acceptedRanks.get(candidate.getDriver().getId()));
         }
         for (var candidate : decision.getRejectedCandidates()) {
-            dispatchAuditService.recordDriverEvaluation(ride, candidate);
+            dispatchAuditService.recordDriverEvaluation(ride, candidate, null);
         }
         if(!decision.hasEligibleCandidates()){
             ride.setCancelledAt(LocalDateTime.now());
@@ -55,6 +62,6 @@ public class DispatchOrchestrator {
         // Step 3: Start the offer flow — try drivers one by one
         rideStateMachine.transition(ride, RideStatus.DISPATCHING);
         rideRepository.save(ride);
-        offerManager.startOfferFlow(ride, decision.rankedDrivers());
+        offerManager.startOfferFlow(ride, rankedDrivers);
     }
 }

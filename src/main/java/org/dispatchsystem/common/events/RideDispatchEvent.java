@@ -45,6 +45,12 @@ public class RideDispatchEvent {
     private EventType eventType;
 
     private Integer dispatchAttempt;
+    private Integer dispatchRank;
+    private Double pickupDistanceKm;
+    private Double candidateScore;
+    private Double constraintsScore;
+    private Double distanceScore;
+    private Double ratingScore;
 
     private String reasonDetails;
 

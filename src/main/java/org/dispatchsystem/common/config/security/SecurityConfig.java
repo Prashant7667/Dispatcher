@@ -1,4 +1,4 @@
-package org.dispatchsystem.common.config;
+package org.dispatchsystem.common.config.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,7 +16,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
-
     private final JWTAuthenticationFilter jwtFilter;
 
     public SecurityConfig(JWTAuthenticationFilter jwtFilter) {

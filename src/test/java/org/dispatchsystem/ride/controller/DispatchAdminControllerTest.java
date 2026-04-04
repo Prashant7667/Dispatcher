@@ -1,5 +1,10 @@
 package org.dispatchsystem.ride.controller;
 
+import org.dispatchsystem.ai.dto.AiDriverDecisionExplanationDTO;
+import org.dispatchsystem.ai.dto.AiOpsSummaryResponse;
+import org.dispatchsystem.ai.dto.AiRideExplanationResponse;
+import org.dispatchsystem.ai.explanations.DispatchExplanationService;
+import org.dispatchsystem.ai.ops.OpsInsightService;
 import org.dispatchsystem.common.events.RideDispatchEvent;
 import org.dispatchsystem.common.events.domains.EventType;
 import org.dispatchsystem.common.events.domains.ReasonCode;
@@ -7,10 +12,7 @@ import org.dispatchsystem.common.exceptions.GlobalExceptionHandler;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.dto.DispatchAnalyticsSummaryDTO;
-import org.dispatchsystem.ride.dto.DispatchOpsSummaryDTO;
-import org.dispatchsystem.ride.dto.DispatchRideExplanationDTO;
 import org.dispatchsystem.ride.service.DispatchAuditService;
-import org.dispatchsystem.ride.service.DispatchInsightService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,13 +31,19 @@ class DispatchAdminControllerTest {
 
     private MockMvc mockMvc;
     private DispatchAuditService dispatchAuditService;
-    private DispatchInsightService dispatchInsightService;
+    private DispatchExplanationService dispatchExplanationService;
+    private OpsInsightService opsInsightService;
 
     @BeforeEach
     void setUp() {
         dispatchAuditService = mock(DispatchAuditService.class);
-        dispatchInsightService = mock(DispatchInsightService.class);
-        DispatchAdminController controller = new DispatchAdminController(dispatchAuditService, dispatchInsightService);
+        dispatchExplanationService = mock(DispatchExplanationService.class);
+        opsInsightService = mock(OpsInsightService.class);
+        DispatchAdminController controller = new DispatchAdminController(
+                dispatchAuditService,
+                dispatchExplanationService,
+                opsInsightService
+        );
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -109,14 +117,22 @@ class DispatchAdminControllerTest {
 
     @Test
     void getRideExplanationReturnsStructuredNarrative() throws Exception {
-        DispatchRideExplanationDTO explanation = DispatchRideExplanationDTO.builder()
+        AiRideExplanationResponse explanation = AiRideExplanationResponse.builder()
                 .rideId(44L)
                 .selectionExplanation("Nisha was selected after earlier candidates timed out.")
                 .selectedDrivers(List.of(
-                        DispatchRideExplanationDTO.DriverDecisionDTO.builder()
+                        AiDriverDecisionExplanationDTO.builder()
                                 .driverId(9L)
                                 .driverName("Nisha")
                                 .dispatchAttempt(2)
+                                .dispatchRank(1)
+                                .pickupDistanceKm(1.4)
+                                .candidateScore(8.8)
+                                .scoreBreakdown(org.dispatchsystem.ai.dto.AiRideExplanationRequest.ScoreBreakdown.builder()
+                                        .constraintsScore(4.5)
+                                        .distanceScore(2.8)
+                                        .ratingScore(1.5)
+                                        .build())
                                 .explanation("Nisha accepted the offer on attempt 2.")
                                 .positiveReasons(List.of(ReasonCode.DRIVER_ACCEPTED))
                                 .negativeReasons(List.of())
@@ -125,38 +141,44 @@ class DispatchAdminControllerTest {
                 .skippedDrivers(List.of())
                 .build();
 
-        when(dispatchInsightService.getRideExplanation(44L)).thenReturn(explanation);
+        when(dispatchExplanationService.explainRide(44L)).thenReturn(explanation);
 
         mockMvc.perform(get("/admin/rides/44/dispatch-explanation"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rideId").value(44))
                 .andExpect(jsonPath("$.selectionExplanation").value("Nisha was selected after earlier candidates timed out."))
-                .andExpect(jsonPath("$.selectedDrivers[0].driverName").value("Nisha"));
+                .andExpect(jsonPath("$.selectedDrivers[0].driverName").value("Nisha"))
+                .andExpect(jsonPath("$.selectedDrivers[0].dispatchRank").value(1))
+                .andExpect(jsonPath("$.selectedDrivers[0].pickupDistanceKm").value(1.4))
+                .andExpect(jsonPath("$.selectedDrivers[0].candidateScore").value(8.8))
+                .andExpect(jsonPath("$.selectedDrivers[0].scoreBreakdown.constraintsScore").value(4.5))
+                .andExpect(jsonPath("$.selectedDrivers[0].scoreBreakdown.distanceScore").value(2.8))
+                .andExpect(jsonPath("$.selectedDrivers[0].scoreBreakdown.ratingScore").value(1.5));
     }
 
     @Test
     void getOpsSummaryReturnsAdminInsights() throws Exception {
         LocalDateTime from = LocalDateTime.of(2026, 3, 30, 1, 0);
         LocalDateTime to = LocalDateTime.of(2026, 3, 30, 7, 0);
-        DispatchOpsSummaryDTO summary = DispatchOpsSummaryDTO.builder()
+        AiOpsSummaryResponse summary = AiOpsSummaryResponse.builder()
                 .from(from)
                 .to(to)
                 .acceptanceRate(42.86)
                 .averageDispatchTimeSeconds(52.15)
                 .topCancellationReasons(List.of(
-                        DispatchOpsSummaryDTO.ReasonCountDTO.builder()
+                        AiOpsSummaryResponse.ReasonCountDTO.builder()
                                 .reasonCode(ReasonCode.PASSENGER_CANCELLED)
                                 .count(5)
                                 .build()
                 ))
                 .topDispatchFailureReasons(List.of(
-                        DispatchOpsSummaryDTO.ReasonCountDTO.builder()
+                        AiOpsSummaryResponse.ReasonCountDTO.builder()
                                 .reasonCode(ReasonCode.NO_ELIGIBLE_DRIVERS)
                                 .count(4)
                                 .build()
                 ))
                 .lowSupplyZones(List.of(
-                        DispatchOpsSummaryDTO.ZonePressureDTO.builder()
+                        AiOpsSummaryResponse.ZonePressureDTO.builder()
                                 .zoneLabel("28.61, 77.21")
                                 .noSupplyCount(3)
                                 .build()
@@ -164,7 +186,7 @@ class DispatchAdminControllerTest {
                 .narrative("Acceptance rate was 42.86%.")
                 .build();
 
-        when(dispatchInsightService.getOpsSummary(from, to)).thenReturn(summary);
+        when(opsInsightService.getOpsSummary(from, to)).thenReturn(summary);
 
         mockMvc.perform(get("/admin/analytics/ops-summary")
                         .param("from", from.toString())

@@ -1,7 +1,7 @@
 package org.dispatchsystem.dispatch.geo;
 
 import org.dispatchsystem.common.events.domains.ReasonCode;
-import org.dispatchsystem.dispatch.DispatchCandidate;
+import org.dispatchsystem.dispatch.model.DispatchCandidate;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.domain.DriverBookingType;
 import org.dispatchsystem.driver.domain.VehicleClass;
@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 class DriverEligibilityServiceTest {
 
@@ -63,6 +64,29 @@ class DriverEligibilityServiceTest {
         assertTrue(candidate.isEligible());
         assertTrue(candidate.getAcceptedReasons().contains(ReasonCode.VEHICLE_CLASS_MATCHED));
         assertTrue(candidate.getAcceptedReasons().contains(ReasonCode.LUGGAGE_CAPACITY_MATCHED));
+    }
+
+    @Test
+    void evaluateGivesHigherScoreToCloserAndHigherRatedEligibleDriver() {
+        Ride ride = createRide(VehicleClass.SEDAN, 15);
+
+        Driver closerHigherRatedDriver = createDriver(VehicleClass.SEDAN, 25);
+        closerHigherRatedDriver.setAvgRating(4.9);
+        closerHigherRatedDriver.setLatitude(12.9717);
+        closerHigherRatedDriver.setLongitude(77.5947);
+
+        Driver fartherLowerRatedDriver = createDriver(VehicleClass.SEDAN, 25);
+        fartherLowerRatedDriver.setAvgRating(4.0);
+        fartherLowerRatedDriver.setLatitude(12.9780);
+        fartherLowerRatedDriver.setLongitude(77.6010);
+
+        DispatchCandidate strongerCandidate = driverEligibilityService.evaluate(ride, closerHigherRatedDriver);
+        DispatchCandidate weakerCandidate = driverEligibilityService.evaluate(ride, fartherLowerRatedDriver);
+
+        assertTrue(strongerCandidate.isEligible());
+        assertTrue(weakerCandidate.isEligible());
+        assertTrue(strongerCandidate.getScore() > weakerCandidate.getScore());
+        assertNotEquals(strongerCandidate.getPickupDistanceKm(), weakerCandidate.getPickupDistanceKm());
     }
 
     private Ride createRide(VehicleClass requestedVehicleClass, int requiredLuggageCapacity) {

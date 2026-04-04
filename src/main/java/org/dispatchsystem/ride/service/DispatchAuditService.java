@@ -4,7 +4,7 @@ import org.dispatchsystem.common.events.RideDispatchEvent;
 import org.dispatchsystem.common.events.domains.EventType;
 import org.dispatchsystem.common.events.domains.ReasonCode;
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
-import org.dispatchsystem.dispatch.DispatchCandidate;
+import org.dispatchsystem.dispatch.model.DispatchCandidate;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.domain.RideStatus;
@@ -34,10 +34,10 @@ public class DispatchAuditService {
     }
 
     public RideDispatchEvent recordDispatchStarted(Ride ride) {
-        return saveEvent(ride, null, EventType.DISPATCH_STARTED, null, null, null, "Dispatch started");
+        return saveEvent(ride, null, EventType.DISPATCH_STARTED, null, null, null, null, null, null, null, null, null, "Dispatch started");
     }
 
-    public RideDispatchEvent recordDriverEvaluation(Ride ride, DispatchCandidate candidate) {
+    public RideDispatchEvent recordDriverEvaluation(Ride ride, DispatchCandidate candidate, Integer dispatchRank) {
         EventType eventType = candidate.isEligible() ? EventType.DRIVER_EVALUATED : EventType.DRIVER_SKIPPED;
         String reasonDetails = candidate.isEligible()
                 ? "Driver remained eligible after dispatch evaluation"
@@ -47,6 +47,12 @@ public class DispatchAuditService {
                 candidate.getDriver(),
                 eventType,
                 null,
+                dispatchRank,
+                candidate.getPickupDistanceKm(),
+                candidate.getScore(),
+                candidate.getScoreBreakdown() != null ? candidate.getScoreBreakdown().getConstraintsScore() : null,
+                candidate.getScoreBreakdown() != null ? candidate.getScoreBreakdown().getDistanceScore() : null,
+                candidate.getScoreBreakdown() != null ? candidate.getScoreBreakdown().getRatingScore() : null,
                 candidate.getAcceptedReasons(),
                 candidate.getRejectedReasons(),
                 reasonDetails
@@ -54,7 +60,7 @@ public class DispatchAuditService {
     }
 
     public RideDispatchEvent recordOfferSent(Ride ride, Driver driver, int dispatchAttempt) {
-        return saveEvent(ride, driver, EventType.OFFER_SENT, dispatchAttempt, null, null, "Offer sent to driver");
+        return saveEvent(ride, driver, EventType.OFFER_SENT, dispatchAttempt, null, null, null, null, null, null, null, null, "Offer sent to driver");
     }
 
     public RideDispatchEvent recordOfferAccepted(Ride ride, Driver driver, int dispatchAttempt) {
@@ -63,6 +69,12 @@ public class DispatchAuditService {
                 driver,
                 EventType.OFFER_ACCEPTED,
                 dispatchAttempt,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 List.of(ReasonCode.DRIVER_ACCEPTED),
                 null,
                 "Driver accepted the dispatch offer"
@@ -76,6 +88,12 @@ public class DispatchAuditService {
                 EventType.OFFER_REJECTED,
                 dispatchAttempt,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 List.of(ReasonCode.DRIVER_REJECTED),
                 "Driver rejected the dispatch offer"
         );
@@ -88,13 +106,19 @@ public class DispatchAuditService {
                 EventType.OFFER_TIMED_OUT,
                 dispatchAttempt,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 List.of(ReasonCode.OFFER_TIMEOUT),
                 "Driver offer timed out"
         );
     }
 
     public RideDispatchEvent recordDriverSkipped(Ride ride, Driver driver, int dispatchAttempt, ReasonCode reasonCode, String reasonDetails) {
-        return saveEvent(ride, driver, EventType.DRIVER_SKIPPED, dispatchAttempt, null, List.of(reasonCode), reasonDetails);
+        return saveEvent(ride, driver, EventType.DRIVER_SKIPPED, dispatchAttempt, null, null, null, null, null, null, null, List.of(reasonCode), reasonDetails);
     }
 
     public RideDispatchEvent recordDriverAssigned(Ride ride, Driver driver, int dispatchAttempt) {
@@ -103,6 +127,12 @@ public class DispatchAuditService {
                 driver,
                 EventType.DRIVER_ASSIGNED,
                 dispatchAttempt,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 List.of(ReasonCode.DRIVER_ACCEPTED),
                 null,
                 "Driver assigned to ride"
@@ -151,11 +181,11 @@ public class DispatchAuditService {
 
 
     public RideDispatchEvent recordDispatchFailed(Ride ride, ReasonCode reasonCode, String reasonDetails) {
-        return saveEvent(ride, null, EventType.DISPATCH_FAILED, null, null, List.of(reasonCode), reasonDetails);
+        return saveEvent(ride, null, EventType.DISPATCH_FAILED, null, null, null, null, null, null, null, null, List.of(reasonCode), reasonDetails);
     }
 
     public RideDispatchEvent recordRideCancelled(Ride ride, Driver driver, Integer dispatchAttempt, ReasonCode reasonCode, String reasonDetails) {
-        return saveEvent(ride, driver, EventType.RIDE_CANCELLED, dispatchAttempt, null, List.of(reasonCode), reasonDetails);
+        return saveEvent(ride, driver, EventType.RIDE_CANCELLED, dispatchAttempt, null, null, null, null, null, null, null, List.of(reasonCode), reasonDetails);
     }
 
     public List<RideDispatchEvent> getDispatchTimeline(Long rideId) {
@@ -213,6 +243,12 @@ public class DispatchAuditService {
             Driver driver,
             EventType eventType,
             Integer dispatchAttempt,
+            Integer dispatchRank,
+            Double pickupDistanceKm,
+            Double candidateScore,
+            Double constraintsScore,
+            Double distanceScore,
+            Double ratingScore,
             List<ReasonCode> positiveReasons,
             List<ReasonCode> negativeReasons,
             String reasonDetails
@@ -222,6 +258,12 @@ public class DispatchAuditService {
                 .driver(driver)
                 .eventType(eventType)
                 .dispatchAttempt(dispatchAttempt)
+                .dispatchRank(dispatchRank)
+                .pickupDistanceKm(pickupDistanceKm)
+                .candidateScore(candidateScore)
+                .constraintsScore(constraintsScore)
+                .distanceScore(distanceScore)
+                .ratingScore(ratingScore)
                 .reasonDetails(reasonDetails)
                 .createdAt(LocalDateTime.now())
                 .positiveReasons(positiveReasons == null ? List.of() : List.copyOf(positiveReasons))

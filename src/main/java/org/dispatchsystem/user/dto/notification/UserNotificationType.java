@@ -1,4 +1,4 @@
-package org.dispatchsystem.user.domain;
+package org.dispatchsystem.user.dto.notification;
 
 public enum UserNotificationType {
     DRIVER_ASSIGNED,

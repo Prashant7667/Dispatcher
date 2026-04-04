@@ -1,7 +1,7 @@
 package org.dispatchsystem.user.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.dispatchsystem.user.domain.UserRideNotification;
+import org.dispatchsystem.user.dto.notification.UserRideNotification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
