@@ -9,6 +9,8 @@ import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.dto.DispatchAnalyticsSummaryDTO;
+import org.dispatchsystem.ride.dto.DispatchFailureReasonsResponseDTO;
+import org.dispatchsystem.ride.dto.DispatchTimelineEventDTO;
 import org.dispatchsystem.ride.repository.RideDispatchEventRepository;
 import org.dispatchsystem.ride.repository.RideRepository;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,8 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class DispatchAuditService {
@@ -104,6 +108,47 @@ public class DispatchAuditService {
                 "Driver assigned to ride"
         );
     }
+    public List<DispatchFailureReasonsResponseDTO> getDispatchFailureReasonsCount(LocalDateTime from, LocalDateTime to) {
+        List<RideDispatchEvent> rideDispatchEvents=rideDispatchEventRepository.findByCreatedAtBetween(from, to);
+        return rideDispatchEvents.stream()
+                .filter(event -> event.getEventType() == EventType.DISPATCH_FAILED
+                        || event.getEventType() == EventType.RIDE_CANCELLED
+                        || event.getEventType() == EventType.OFFER_REJECTED
+                        || event.getEventType() == EventType.OFFER_TIMED_OUT)
+                .flatMap(event -> event.getNegativeReasons().stream())
+                .collect(Collectors.groupingBy(reason -> reason, Collectors.counting()))
+                .entrySet().stream()
+                .map(entry -> new DispatchFailureReasonsResponseDTO(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+    public DispatchTimelineEventDTO.DispatchOutcomeBreakdownDTO getOutcomeBreakdown(LocalDateTime from, LocalDateTime to) {
+        List<RideDispatchEvent> rideDispatchEvents =
+                rideDispatchEventRepository.findByCreatedAtBetween(from, to);
+
+        long successfulAssignments = rideDispatchEvents.stream()
+                .filter(event -> event.getEventType() == EventType.DRIVER_ASSIGNED)
+                .count();
+
+        Map<ReasonCode, Long> reasonCounts = rideDispatchEvents.stream()
+                .filter(event -> event.getEventType() == EventType.DISPATCH_FAILED
+                        || event.getEventType() == EventType.RIDE_CANCELLED
+                        || event.getEventType() == EventType.OFFER_REJECTED
+                        || event.getEventType() == EventType.OFFER_TIMED_OUT)
+                .flatMap(event -> event.getNegativeReasons().stream())
+                .collect(Collectors.groupingBy(reason -> reason, Collectors.counting()));
+
+        return DispatchTimelineEventDTO.DispatchOutcomeBreakdownDTO.builder()
+                .successfulAssignments(successfulAssignments)
+                .failedNoEligibleDrivers(reasonCounts.getOrDefault(ReasonCode.NO_ELIGIBLE_DRIVERS, 0L))
+                .failedAllOffersExhausted(reasonCounts.getOrDefault(ReasonCode.ALL_OFFERS_EXHAUSTED, 0L))
+                .cancelledByPassenger(reasonCounts.getOrDefault(ReasonCode.PASSENGER_CANCELLED, 0L))
+                .offerRejectedCount(reasonCounts.getOrDefault(ReasonCode.DRIVER_REJECTED, 0L))
+                .offerTimeoutCount(reasonCounts.getOrDefault(ReasonCode.OFFER_TIMEOUT, 0L))
+                .build();
+    }
+
+
+
 
     public RideDispatchEvent recordDispatchFailed(Ride ride, ReasonCode reasonCode, String reasonDetails) {
         return saveEvent(ride, null, EventType.DISPATCH_FAILED, null, null, List.of(reasonCode), reasonDetails);
@@ -120,9 +165,9 @@ public class DispatchAuditService {
         return rideDispatchEventRepository.findByRide_IdOrderByCreatedAtAsc(rideId);
     }
 
-    public DispatchAnalyticsSummaryDTO getDispatchAnalyticsSummary() {
-        List<RideDispatchEvent> auditEvents = rideDispatchEventRepository.findAll();
-        List<Ride> rides = rideRepository.findAll();
+    public DispatchAnalyticsSummaryDTO getDispatchAnalyticsSummary(LocalDateTime from, LocalDateTime to) {
+        List<RideDispatchEvent> auditEvents = rideDispatchEventRepository.findByCreatedAtBetween(from, to);
+        List<Ride> rides = rideRepository.findByCreatedAtBetween(from , to);
 
         long totalOffersSent = auditEvents.stream().filter(event -> event.getEventType() == EventType.OFFER_SENT).count();
         long acceptedOffers = auditEvents.stream().filter(event -> event.getEventType() == EventType.OFFER_ACCEPTED).count();

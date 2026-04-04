@@ -13,5 +13,5 @@ public interface RideRepository extends JpaRepository<Ride, Long> {
     List<Ride> findByDriverEmail(String email);
 
     List<Ride>findByStatusAndScheduledStartLessThanEqual(RideStatus status, LocalDateTime scheduledAt);
-
+    List<Ride>findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 }

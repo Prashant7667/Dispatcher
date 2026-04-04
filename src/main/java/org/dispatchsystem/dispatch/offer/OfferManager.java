@@ -256,7 +256,7 @@ public class OfferManager {
         rideStateMachine.transition(ride, RideStatus.CANCELLED);
         rideRepository.save(ride);
         activeFlows.remove(ride.getId());
-        dispatchAuditService.recordDispatchFailed(ride, ReasonCode.NO_ELIGIBLE_DRIVERS, "Dispatch exhausted all eligible drivers without an assignment");
+        dispatchAuditService.recordDispatchFailed(ride, ReasonCode.ALL_OFFERS_EXHAUSTED, "Dispatch exhausted all eligible drivers without an assignment");
         applicationEventPublisher.publishEvent(new NoDriversAvailableEvent(ride));
         // TODO: Notify rider
     }

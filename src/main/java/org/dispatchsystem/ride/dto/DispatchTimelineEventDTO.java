@@ -1,6 +1,9 @@
 package org.dispatchsystem.ride.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.dispatchsystem.common.events.domains.EventType;
 import org.dispatchsystem.common.events.domains.ReasonCode;
 
@@ -19,4 +22,17 @@ public class DispatchTimelineEventDTO {
     private LocalDateTime createdAt;
     private List<ReasonCode> positiveReasons;
     private List<ReasonCode> negativeReasons;
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class DispatchOutcomeBreakdownDTO {
+        private long successfulAssignments;
+        private long failedNoEligibleDrivers;
+        private long failedAllOffersExhausted;
+        private long cancelledByPassenger;
+        private long offerRejectedCount;
+        private long offerTimeoutCount;
+    }
 }
