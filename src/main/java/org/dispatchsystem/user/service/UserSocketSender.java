@@ -16,7 +16,10 @@ public class UserSocketSender {
     }
 
     public void sendToUser(UserRideNotification notification){
-        String email = notification.getRide().getUser().getEmail();
+        String email = notification.getRecipientEmail();
+        if(email==null){
+            return;
+        }
         WebSocketSession session=registry.getAll().get(email);
         if(session==null || !session.isOpen()){
             return;

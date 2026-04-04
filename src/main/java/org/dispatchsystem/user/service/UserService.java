@@ -1,8 +1,8 @@
 package org.dispatchsystem.user.service;
 
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
-import org.dispatchsystem.driver.repository.DriverRepository;
 import org.dispatchsystem.user.domain.User;
+import org.dispatchsystem.user.domain.UserRole;
 import org.dispatchsystem.user.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +23,9 @@ public class UserService {
     public User registerUser(User passenger) {
         if (passenger.getPassword() != null && !passenger.getPassword().isBlank()) {
             passenger.setPassword(passwordEncoder.encode(passenger.getPassword()));
+        }
+        if (passenger.getRole() == null) {
+            passenger.setRole(UserRole.USER);
         }
         return passengerRepository.save(passenger);
     }

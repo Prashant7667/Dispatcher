@@ -41,7 +41,7 @@ public class RideController {
         Ride ride = rideService.getRideById(id);
         return ResponseEntity.ok(toResponseDto(ride));
     }
-    @PreAuthorize("hasRole('PASSENGER')")
+    @PreAuthorize("hasRole('USER')")
     @PostMapping("/me/{rideId}/cancel")
     public ResponseEntity<RideResponseDTO> cancelRideByPassenger(@PathVariable Long rideId){
         Ride cancelRide=rideService.cancelRideByPassenger(rideId);
@@ -94,7 +94,7 @@ public class RideController {
         List<Ride>rides= rideService.getDriverRideHistory();
         return ResponseEntity.ok(rides.stream().map(this::toResponseDto).collect(Collectors.toList()));
     }
-    @PreAuthorize("hasRole('PASSENGER')")
+    @PreAuthorize("hasRole('USER')")
     @GetMapping("/me/user/rideHistory")
     public ResponseEntity<List<RideResponseDTO>>ridePassengerHistory(){
         List<Ride>rides= rideService.getPassengerRideHistory();
