@@ -28,7 +28,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         User passenger = userRepository.findByEmail(email).orElse(null);
         if (passenger != null) {
-            return new UserDetailsImpl(passenger.getEmail(), passenger.getPassword(), "USER");
+            return new UserDetailsImpl(passenger.getEmail(), passenger.getPassword(), passenger.getRole().name());
         }
 
         throw new UsernameNotFoundException("No driver or passenger found with email: " + email);

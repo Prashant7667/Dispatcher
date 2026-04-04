@@ -2,6 +2,7 @@ package org.dispatchsystem.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import org.dispatchsystem.user.domain.UserRole;
 
 @Data
 public class UserRequestDTO {
@@ -13,4 +14,5 @@ public class UserRequestDTO {
     private String password;
     @NotBlank(message = "phoneNumber is required")
     private String phoneNumber;
+    private UserRole role;
 }

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.dispatchsystem.common.config.security.JwtUtils;
 import org.dispatchsystem.common.config.security.UserDetailsImpl;
 import org.dispatchsystem.user.domain.User;
+import org.dispatchsystem.user.domain.UserRole;
 import org.dispatchsystem.user.dto.LoginRequest;
 import org.dispatchsystem.user.dto.UserRequestDTO;
 import org.dispatchsystem.user.dto.UserResponseDTO;
@@ -38,6 +39,7 @@ public class UserController {
         user.setEmail(userRequest.getEmail());
         user.setPassword(userRequest.getPassword());
         user.setPhoneNumber(userRequest.getPhoneNumber());
+        user.setRole(userRequest.getRole() == null ? UserRole.USER : userRequest.getRole());
         User savedUser = passengerService.registerUser(user);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponseDto(savedUser));
     }
@@ -81,6 +83,7 @@ public class UserController {
         responseDTO.setName(user.getName());
         responseDTO.setEmail(user.getEmail());
         responseDTO.setPhoneNumber(user.getPhoneNumber());
+        responseDTO.setRole(user.getRole());
         return responseDTO;
     }
 }

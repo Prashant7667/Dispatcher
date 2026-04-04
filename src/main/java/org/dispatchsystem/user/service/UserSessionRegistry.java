@@ -10,7 +10,6 @@ public class UserSessionRegistry {
     private final Map<String, WebSocketSession> users = new ConcurrentHashMap<>();
 
     public void add(String email, WebSocketSession session) {
-        System.out.println("Driver connected: " + email);
         users.put(email, session);
     }
 

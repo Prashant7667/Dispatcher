@@ -1,6 +1,7 @@
 package org.dispatchsystem.user.dto;
 
 import lombok.Data;
+import org.dispatchsystem.user.domain.UserRole;
 
 @Data
 public class UserResponseDTO {
@@ -8,4 +9,5 @@ public class UserResponseDTO {
     private String name;
     private String email;
     private String phoneNumber;
+    private UserRole role;
 }

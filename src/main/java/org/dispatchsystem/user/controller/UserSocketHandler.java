@@ -1,7 +1,4 @@
 package org.dispatchsystem.user.controller;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.dispatchsystem.dispatch.offer.OfferManager;
 import org.dispatchsystem.user.service.UserSessionRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;

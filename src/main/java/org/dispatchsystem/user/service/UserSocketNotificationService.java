@@ -3,6 +3,7 @@ package org.dispatchsystem.user.service;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.user.dto.notification.UserNotificationType;
 import org.dispatchsystem.user.dto.notification.UserRideNotification;
+import org.dispatchsystem.user.dto.notification.UserRideSnapshotDTO;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -59,11 +60,26 @@ public class UserSocketNotificationService {
         UserRideNotification notification = new UserRideNotification();
         notification.setType(type);
         notification.setMessage(message);
+        notification.setRecipientEmail(ride.getUser() != null ? ride.getUser().getEmail() : null);
         notification.setRideId(ride.getId());
         notification.setRideStatus(ride.getStatus());
         notification.setDriverId(ride.getDriver() != null ? ride.getDriver().getId() : null);
         notification.setDriverName(ride.getDriver() != null ? ride.getDriver().getName() : null);
-        notification.setRide(ride);
+        notification.setRide(UserRideSnapshotDTO.builder()
+                .id(ride.getId())
+                .startLongitude(ride.getStartLongitude())
+                .startLatitude(ride.getStartLatitude())
+                .endLongitude(ride.getEndLongitude())
+                .endLatitude(ride.getEndLatitude())
+                .requestedVehicleClass(ride.getRequestedVehicleClass())
+                .requiredLuggageCapacity(ride.getRequiredLuggageCapacity())
+                .status(ride.getStatus())
+                .bookingType(ride.getBookingType())
+                .estimatedDurationMinutes(ride.getEstimatedDurationMinutes())
+                .rentalPlan(ride.getRentalPlan())
+                .scheduledStart(ride.getScheduledStart())
+                .fare(ride.getFare())
+                .build());
         return notification;
     }
 }

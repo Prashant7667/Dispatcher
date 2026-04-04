@@ -54,7 +54,7 @@ class DriverSocketHandlerTest {
 
         driverSocketHandler.handleTextMessage(session, new TextMessage(
                 """
-                {"rideId":42,"message":"ACCEPT"}
+                {"rideId":42,"type":"ACCEPTED"}
                 """
         ));
 
@@ -70,7 +70,7 @@ class DriverSocketHandlerTest {
 
         driverSocketHandler.handleTextMessage(session, new TextMessage(
                 """
-                {"rideId":42,"message":"ACCEPT"}
+                {"rideId":42,"type":"ACCEPTED"}
                 """
         ));
 

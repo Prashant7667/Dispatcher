@@ -40,7 +40,7 @@ public class DriverSocketHandler extends TextWebSocketHandler {
             String payload = textMessage.getPayload();
             if("DRIVER".equals(role)){
                 DriverOfferResponse response = objectMapper.readValue(payload, DriverOfferResponse.class);
-                DriverResponded driverResponded=offerManager.handleDriverResponse(response.getRideId(),email,response.getMessage());
+                DriverResponded driverResponded=offerManager.handleDriverResponse(response.getRideId(),email,response.resolveAction());
                 session.sendMessage(new TextMessage(objectMapper.writeValueAsString(driverResponded)));
             }
 
