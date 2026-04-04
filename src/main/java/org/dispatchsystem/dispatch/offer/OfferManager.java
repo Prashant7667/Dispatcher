@@ -1,6 +1,7 @@
 package org.dispatchsystem.dispatch.offer;
 
 import org.dispatchsystem.common.events.DriverAssignedEvent;
+import org.dispatchsystem.common.events.DriverOfferCreatedEvent;
 import org.dispatchsystem.common.events.NoDriversAvailableEvent;
 import org.dispatchsystem.common.events.RideCancelledEvent;
 import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
@@ -13,10 +14,11 @@ import org.dispatchsystem.ride.domain.RideOffer;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideOfferRepository;
 import org.dispatchsystem.ride.repository.RideRepository;
-import org.dispatchsystem.ride.service.RideBroadcastService;
 import org.dispatchsystem.ride.service.RideStateMachine;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,15 +28,13 @@ import java.util.concurrent.*;
 public class OfferManager {
 
     private final RideOfferRepository offerRepository;
-    private final RideBroadcastService broadcastService;
     private final RideRepository rideRepository;
     private final DriverRepository driverRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RideStateMachine rideStateMachine;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
-    OfferManager(RideOfferRepository offerRepository, RideBroadcastService rideBroadcastService, RideRepository rideRepository, DriverRepository driverRepository, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
+    OfferManager(RideOfferRepository offerRepository, RideRepository rideRepository, DriverRepository driverRepository, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
         this.offerRepository = offerRepository;
-        this.broadcastService = rideBroadcastService;
         this.rideRepository = rideRepository;
         this.driverRepository = driverRepository;
         this.applicationEventPublisher = applicationEventPublisher;
@@ -57,7 +57,29 @@ public class OfferManager {
     /**
      * Send an offer to the next driver in the list.
      */
-    private void sendNextOffer(OfferFlowState state) {
+    public void cancelRideFlow(Long rideId){
+        OfferFlowState state=activeFlows.remove(rideId);
+        if(state==null)return;
+        ScheduledFuture<?>timeoutFuture = state.getTimeoutFuture();
+        if(timeoutFuture!=null){
+            timeoutFuture.cancel(false);
+        }
+        RideOffer currentOffer=state.getCurrentOffer();
+        if(currentOffer!=null && currentOffer.getStatus()==OfferStatus.PENDING){
+            currentOffer.setStatus(OfferStatus.CANCELLED);
+            currentOffer.setRespondedAt(LocalDateTime.now());
+            Driver driver=currentOffer.getDriver();
+            if(currentOffer.getDriver()!=null){
+
+                driver.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+                driverRepository.save(driver);
+                currentOffer.setDriver(driver);
+            }
+            offerRepository.save(currentOffer);
+        }
+    }
+    @Transactional
+    public void sendNextOffer(OfferFlowState state) {
         if (state.getCurrentIndex() >= state.getRankedDrivers().size()) {
             // No more drivers to try
             handleNoDriversAvailable(state.getRide());
@@ -78,8 +100,13 @@ public class OfferManager {
         state.setCurrentOffer(offer);
 
         // 2. Send WebSocket notification to this specific driver
-        broadcastService.sendOfferToDriver(nextDriver, state.getRide());
-
+        int val=driverRepository.updateDriver(nextDriver.getId(), AvailabilityStatus.AVAILABLE, AvailabilityStatus.RESERVED);
+        if(val==0){
+            movingToNextCandidate(state);
+            return;
+        }
+        applicationEventPublisher.publishEvent(new DriverOfferCreatedEvent(nextDriver,state.getRide()));
+       // broadcastService.sendOfferToDriver(nextDriver, state.getRide());
         // 3. Schedule timeout — if no response in 30s, move to next
         ScheduledFuture<?> timeout = scheduler.schedule(
                 () -> handleOfferTimeout(state),
@@ -88,22 +115,39 @@ public class OfferManager {
         state.setTimeoutFuture(timeout);
     }
 
-    /**
-     * Called when a driver responds via WebSocket.
-     * This is triggered from RideSocketHandler when driver sends ACCEPT/REJECT.
-     */
-    public void handleDriverResponse(Long rideId, String driverEmail, String response) {
+    public DriverResponded resolveInactiveOfferResponse(Long rideId, String driverEmail) {
+        return offerRepository.findTopByDriver_EmailAndRide_IdOrderBySentAtDesc(driverEmail, rideId)
+                .map(offer -> {
+                    if (offer.getStatus() == OfferStatus.EXPIRED) {
+                        return new DriverResponded(OfferStatusState.OFFER_EXPIRED, rideId, "Offer already expired");
+                    }
+                    if (offer.getStatus() == OfferStatus.CANCELLED) {
+                        return new DriverResponded(OfferStatusState.RIDE_CANCELLED, rideId, "Ride was cancelled");
+                    }
+                    return new DriverResponded(OfferStatusState.NO_ACTIVE_OFFER, rideId, "No active offer for this ride");
+                })
+                .orElseGet(() -> new DriverResponded(
+                        OfferStatusState.NO_ACTIVE_OFFER,
+                        rideId,
+                        "No active offer for this ride"
+                ));
+    }
+
+    public DriverResponded handleDriverResponse(Long rideId, String driverEmail, String response) {
         OfferFlowState state = activeFlows.get(rideId);
-        if (state == null) return; // ride already assigned or cancelled
+
+        if (state == null) {
+            return resolveInactiveOfferResponse(rideId,driverEmail);
+        }
 
         RideOffer currentOffer = state.getCurrentOffer();
         if (currentOffer == null || currentOffer.getDriver() == null) {
-            throw new BusinessRuleViolationException("No active offer exists for this ride");
+            return new DriverResponded(OfferStatusState.NO_ACTIVE_OFFER,rideId,"No active offer for this ride");
         }
 
         String offeredDriverEmail = currentOffer.getDriver().getEmail();
         if (offeredDriverEmail == null || !offeredDriverEmail.equalsIgnoreCase(driverEmail)) {
-            throw new BusinessRuleViolationException("This driver is not authorized to respond to the current offer");
+            return resolveInactiveOfferResponse(rideId,driverEmail);
         }
 
         // Cancel the timeout since driver responded
@@ -114,7 +158,9 @@ public class OfferManager {
         if ("ACCEPT".equals(response)) {
             // ✅ Driver accepted!
             RideOffer offer = currentOffer;
+            offer.getDriver().setAvailabilityStatus(AvailabilityStatus.UNAVAILABLE);
             offer.setStatus(OfferStatus.ACCEPTED);
+            offer.setRespondedAt(LocalDateTime.now());
             offerRepository.save(offer);
 
             // Assign driver to ride
@@ -125,12 +171,12 @@ public class OfferManager {
 
             // Mark driver as unavailable
             Driver driver = offer.getDriver();
-            driver.setAvailabilityStatus(AvailabilityStatus.UNAVAILABLE);
             driverRepository.save(driver);
 
             // Clean up
             activeFlows.remove(rideId);
-            applicationEventPublisher.publishEvent(new DriverAssignedEvent(driver,ride));
+            applicationEventPublisher.publishEvent(new DriverAssignedEvent(ride));
+            return new DriverResponded(OfferStatusState.SUCCESS,rideId,"Ride is Accepted by the driver");
 
             // TODO: Notify rider that driver was found
 
@@ -138,9 +184,14 @@ public class OfferManager {
             // ❌ Driver rejected — try next
             RideOffer offer = currentOffer;
             offer.setStatus(OfferStatus.REJECTED);
+            offer.getDriver().setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+            driverRepository.save(offer.getDriver());
+            offer.setRespondedAt(LocalDateTime.now());
             offerRepository.save(offer);
             state.incrementIndex();
             sendNextOffer(state);
+            return new DriverResponded(OfferStatusState.REJECTED,rideId,"Ride is Rejected by the driver");
+
         } else {
             throw new BusinessRuleViolationException("Unsupported driver response: " + response);
         }
@@ -149,21 +200,39 @@ public class OfferManager {
     /**
      * Called when the 30-second timeout fires.
      */
-    private void handleOfferTimeout(OfferFlowState state) {
+    public void handleOfferTimeout(OfferFlowState state) {
         RideOffer offer = state.getCurrentOffer();
+        if(activeFlows.get(offer.getRide().getId())!=state){
+            return;
+        }
         offer.setStatus(OfferStatus.EXPIRED);
+        Driver driver=offer.getDriver();
+        driver.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+        driverRepository.save(driver);
+        offer.setDriver(driver);
+        offer.setRespondedAt(LocalDateTime.now());
         offerRepository.save(offer);
 
         state.incrementIndex();
         sendNextOffer(state);
     }
+    public void movingToNextCandidate(OfferFlowState state) {
+        RideOffer offer = state.getCurrentOffer();
+        if(activeFlows.get(offer.getRide().getId())!=state){
+            return;
+        }
+        offer.setStatus(OfferStatus.EXPIRED);
+        offer.setRespondedAt(LocalDateTime.now());
+        offerRepository.save(offer);
+        state.incrementIndex();
+        sendNextOffer(state);
+    }
 
-    private void handleNoDriversAvailable(Ride ride) {
+    public void handleNoDriversAvailable(Ride ride) {
         rideStateMachine.transition(ride, RideStatus.CANCELLED);
         rideRepository.save(ride);
         activeFlows.remove(ride.getId());
         applicationEventPublisher.publishEvent(new NoDriversAvailableEvent(ride));
-        applicationEventPublisher.publishEvent(new RideCancelledEvent(ride));
         // TODO: Notify rider
     }
 }

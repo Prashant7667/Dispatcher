@@ -32,7 +32,7 @@ public class DispatchOrchestrator {
                 .collect(Collectors.toList());
     }
     public void dispatch(Ride ride){
-        List<Driver> nearbyDrivers = geoService.findNearbyAvailableDrivers(ride.getStartLatitude(), ride.getStartLongitude(), 5.0);
+        List<Driver> nearbyDrivers = geoService.findNearbyAvailableDrivers(ride, 5.0);
         if (nearbyDrivers.isEmpty()) {
             rideStateMachine.transition(ride, RideStatus.CANCELLED);
             rideRepository.save(ride);

@@ -1,18 +1,17 @@
 package org.dispatchsystem.ride.service;
-import org.dispatchsystem.common.events.RideRequestedEvent;
+import org.dispatchsystem.common.events.RideCancelledEvent;
 import org.dispatchsystem.common.exceptions.BusinessRuleViolationException;
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
+import org.dispatchsystem.dispatch.offer.OfferManager;
 import org.dispatchsystem.dispatch.orchestrator.DispatchOrchestrator;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
 import org.dispatchsystem.driver.repository.DriverRepository;
-import org.dispatchsystem.driver.service.DriverService;
 import org.dispatchsystem.ride.domain.BookingType;
 import org.dispatchsystem.ride.domain.RentalPlan;
 import org.dispatchsystem.ride.domain.Ride;
 import org.dispatchsystem.ride.domain.RideStatus;
 import org.dispatchsystem.ride.repository.RideRepository;
-import org.dispatchsystem.user.repository.UserRepository;
 import org.dispatchsystem.user.service.UserService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
@@ -25,22 +24,20 @@ import java.util.List;
 public class RideService {
     private final RideRepository rideRepository;
     private final DriverRepository driverRepository;
-    private final UserRepository userRepository;
-    private final DriverService driverService;
     private final UserService userService;
     private final DispatchOrchestrator dispatchOrchestrator;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RideStateMachine rideStateMachine;
+    private final OfferManager offerManager;
 
-    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserRepository userRepository, DriverService driverService, UserService userService, DispatchOrchestrator dispatchOrchestrator, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine){
+    public RideService(RideRepository rideRepository, DriverRepository driverRepository, UserService userService, DispatchOrchestrator dispatchOrchestrator, ApplicationEventPublisher applicationEventPublisher, RideStateMachine rideStateMachine,OfferManager offerManager){
         this.rideRepository=rideRepository;
         this.driverRepository=driverRepository;
-        this.userRepository=userRepository;
-        this.driverService=driverService;
         this.userService=userService;
         this.dispatchOrchestrator=dispatchOrchestrator;
         this.applicationEventPublisher=applicationEventPublisher;
         this.rideStateMachine=rideStateMachine;
+        this.offerManager=offerManager;
     }
 
     public Ride requestRide(double startLongitude, double startLatitude, double endLongitude, double endLatitude,
@@ -64,7 +61,6 @@ public class RideService {
         ride.setFare(fare);
         ride.setStatus(RideStatus.REQUESTED);
         Ride savedRide = rideRepository.save(ride);
-        applicationEventPublisher.publishEvent(new RideRequestedEvent(savedRide));
         dispatchOrchestrator.dispatch(savedRide);
         return savedRide;
     }
@@ -86,7 +82,16 @@ public class RideService {
         if(ride.getStatus()== RideStatus.COMPLETED){
             throw new BusinessRuleViolationException("Ride Is Already Completed");
         }
+
         rideStateMachine.transition(ride,RideStatus.CANCELLED);
+
+        offerManager.cancelRideFlow(rideId);
+        Driver driver=ride.getDriver();
+        if(driver!=null){
+            driver.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+            driverRepository.save(driver);
+        }
+        applicationEventPublisher.publishEvent(new RideCancelledEvent(ride));
         return rideRepository.save(ride);
     }
 

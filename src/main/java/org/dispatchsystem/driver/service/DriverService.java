@@ -2,13 +2,16 @@ package org.dispatchsystem.driver.service;
 import org.dispatchsystem.common.exceptions.ResourceNotFoundException;
 import org.dispatchsystem.driver.domain.AvailabilityStatus;
 import org.dispatchsystem.driver.domain.Driver;
+import org.dispatchsystem.driver.domain.DriverBookingType;
 import org.dispatchsystem.driver.repository.DriverRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class DriverService {
@@ -23,6 +26,7 @@ public class DriverService {
         if (driver.getPassword() != null && !driver.getPassword().isBlank()) {
              driver.setPassword(passwordEncoder.encode(driver.getPassword()));
         }
+        applyDefaultBookingCapabilities(driver);
         return driverRepository.save(driver);
     }
 
@@ -59,6 +63,18 @@ public class DriverService {
         if (updatedData.getLongitude() != null)
             existingDriver.setLongitude(updatedData.getLongitude());
 
+        if (updatedData.getSupportedBookingTypes() != null)
+            existingDriver.setSupportedBookingTypes(new HashSet<>(updatedData.getSupportedBookingTypes()));
+
+        if (updatedData.getAvailableFrom() != null)
+            existingDriver.setAvailableFrom(updatedData.getAvailableFrom());
+
+        if (updatedData.getAvailableUntil() != null)
+            existingDriver.setAvailableUntil(updatedData.getAvailableUntil());
+
+        if (updatedData.getMaxRentalDurationMinutes() != null)
+            existingDriver.setMaxRentalDurationMinutes(updatedData.getMaxRentalDurationMinutes());
+
         return driverRepository.save(existingDriver);
     }
 
@@ -73,6 +89,15 @@ public class DriverService {
             driver.setAvailabilityStatus(status);
         }
         return driverRepository.save(driver);
+    }
+
+    private void applyDefaultBookingCapabilities(Driver driver) {
+        Set<DriverBookingType> supportedTypes = driver.getSupportedBookingTypes();
+        if (supportedTypes == null || supportedTypes.isEmpty()) {
+            driver.setSupportedBookingTypes(new HashSet<>(Set.of(DriverBookingType.TRIP)));
+        } else {
+            driver.setSupportedBookingTypes(new HashSet<>(supportedTypes));
+        }
     }
 
 }
